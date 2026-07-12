@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Electrofab · Procurement Decision Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --surface-1:#fcfcfb; --plane:#f9f9f7; --ink-1:#0b0b0b; --ink-2:#52514e; --ink-3:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+  --s1:#2a78d6; --s2:#1baf7a; --s3:#eda100; --s5:#4a3aa7; --s6:#e34948; --ctx:#a8a69e;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --crit:#d03b3b; --delta-good:#006300;
+  --seq1:#cde2fb; --seq2:#9ec5f4; --seq3:#6da7ec; --seq4:#3987e5; --seq5:#256abf; --seq6:#184f95; --seq7:#0d366b;
+  --card-r:14px;
+}
+html.dark{
+  --surface-1:#1a1a19; --plane:#0d0d0d; --ink-1:#ffffff; --ink-2:#c3c2b7; --ink-3:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+  --s1:#3987e5; --s2:#199e70; --s3:#c98500; --s5:#9085e9; --s6:#e66767; --ctx:#6e6d67;
+  --delta-good:#0ca30c;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--plane);color:var(--ink-1);font-size:14px;line-height:1.45}
+.wrap{max-width:1280px;margin:0 auto;padding:0 20px 64px}
+/* ---------- header ---------- */
+header{position:sticky;top:0;z-index:50;background:var(--plane);border-bottom:1px solid var(--grid)}
+.hd-top{display:flex;align-items:center;gap:14px;padding:14px 20px 8px;max-width:1280px;margin:0 auto}
+.logo{width:34px;height:34px;border-radius:9px;background:var(--s1);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex:none}
+.hd-title{font-size:16px;font-weight:700}
+.hd-sub{font-size:12px;color:var(--ink-3)}
+.hd-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn{border:1px solid var(--border);background:var(--surface-1);color:var(--ink-2);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-family:inherit}
+.btn:hover{border-color:var(--axis);color:var(--ink-1)}
+.btn.primary{background:var(--s1);color:#fff;border-color:transparent}
+.tabs{display:flex;gap:2px;overflow-x:auto;padding:0 20px;max-width:1280px;margin:0 auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:none;background:none;font-family:inherit;font-size:13px;color:var(--ink-2);padding:9px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink-1)}
+.tab.active{color:var(--ink-1);font-weight:600;border-bottom-color:var(--s1)}
+/* ---------- filter row ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:14px 0 4px}
+.fl-label{font-size:12px;color:var(--ink-3);margin-right:2px}
+.chipset{display:flex;gap:4px;background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:3px}
+.chip{border:none;background:none;font-family:inherit;font-size:12.5px;color:var(--ink-2);padding:5px 11px;border-radius:6px;cursor:pointer}
+.chip.active{background:var(--s1);color:#fff;font-weight:600}
+select.fsel{font-family:inherit;font-size:12.5px;color:var(--ink-2);background:var(--surface-1);border:1px solid var(--border);border-radius:9px;padding:8px 10px;cursor:pointer}
+.badge{font-size:11.5px;color:var(--ink-2);background:var(--surface-1);border:1px solid var(--border);border-radius:20px;padding:5px 12px}
+/* ---------- cards & grid ---------- */
+.page{display:none;animation:fade .18s ease}
+.page.active{display:block}
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+h2.pg{font-size:19px;font-weight:700;margin:18px 0 4px}
+p.pg-sub{color:var(--ink-3);font-size:12.5px;margin-bottom:14px;max-width:860px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:980px){.g4{grid-template-columns:repeat(2,1fr)}.g3{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.g4,.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--card-r);padding:16px}
+.card h3{font-size:13px;font-weight:600;color:var(--ink-1);margin-bottom:2px}
+.card .sub{font-size:11.5px;color:var(--ink-3);margin-bottom:10px}
+.card-hd{display:flex;align-items:flex-start;gap:8px}
+.card-hd .spacer{flex:1}
+.tbtn{border:1px solid var(--border);background:none;border-radius:6px;color:var(--ink-3);font-size:11px;padding:3px 8px;cursor:pointer;font-family:inherit;flex:none}
+.tbtn:hover{color:var(--ink-1)}
+/* ---------- KPI tiles ---------- */
+.kpi{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--card-r);padding:14px 16px;position:relative}
+.kpi .lbl{font-size:12px;color:var(--ink-2);display:flex;align-items:center;gap:6px}
+.kpi .val{font-size:24px;font-weight:650;margin:4px 0 2px;letter-spacing:-.01em}
+.kpi .val small{font-size:13px;font-weight:500;color:var(--ink-3)}
+.kpi .delta{font-size:12px;color:var(--ink-3)}
+.kpi .delta b{font-weight:600}
+.up-good{color:var(--delta-good)} .down-bad{color:var(--crit)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;display:inline-block}
+.dot.g{background:var(--good)} .dot.a{background:var(--warn)} .dot.r{background:var(--crit)}
+.rag-note{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--ink-3)}
+.hero .val{font-size:46px;font-weight:700;letter-spacing:-.02em}
+/* ---------- inputs / assumptions ---------- */
+.inp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.inp{display:flex;flex-direction:column;gap:3px}
+.inp label{font-size:11.5px;color:var(--ink-2)}
+.inp input{font-family:inherit;font-size:13.5px;color:var(--ink-1);background:var(--plane);border:1px solid var(--border);border-radius:8px;padding:7px 9px;width:100%}
+.inp input:focus{outline:2px solid var(--s1);outline-offset:-1px;border-color:transparent}
+.inp .unit{font-size:10.5px;color:var(--ink-3)}
+.as-group{font-size:12px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+/* ---------- tables ---------- */
+table.dt{width:100%;border-collapse:collapse;font-size:12.5px}
+.dt th{font-weight:600;color:var(--ink-3);text-align:right;padding:7px 8px;border-bottom:1px solid var(--grid);font-size:11.5px;white-space:nowrap}
+.dt th:first-child,.dt td:first-child{text-align:left}
+.dt td{padding:6px 8px;border-bottom:1px solid var(--grid);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.dt td:first-child{color:var(--ink-1)}
+.dt tr.tot td{font-weight:700;color:var(--ink-1);border-top:2px solid var(--axis)}
+.dt tr.sec td{font-weight:600;color:var(--ink-1);background:var(--plane)}
+.dt tr:hover td{background:var(--plane)}
+.pill{font-size:11px;border-radius:12px;padding:2px 9px;font-weight:600;display:inline-block}
+.pill.g{background:color-mix(in srgb,var(--good) 14%,transparent);color:var(--good)}
+.pill.a{background:color-mix(in srgb,var(--warn) 18%,transparent);color:#8a6100}
+html.dark .pill.a{color:var(--warn)}
+.pill.r{background:color-mix(in srgb,var(--crit) 14%,transparent);color:var(--crit)}
+.pill.b{background:color-mix(in srgb,var(--s1) 14%,transparent);color:var(--s1)}
+/* ---------- charts ---------- */
+.chart-box{position:relative}
+.chart-box svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin:2px 0 8px;font-size:11.5px;color:var(--ink-2)}
+.lg-it{display:inline-flex;align-items:center;gap:6px}
+.lg-sw{width:12px;height:12px;border-radius:3px;flex:none}
+.lg-ln{width:16px;height:0;border-top:3px solid;border-radius:2px;flex:none}
+#tip{position:fixed;z-index:200;pointer-events:none;background:var(--surface-1);border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 20px rgba(0,0,0,.13);padding:9px 11px;font-size:12px;display:none;min-width:130px;max-width:260px}
+#tip .t-h{font-size:11px;color:var(--ink-3);margin-bottom:5px}
+#tip .t-r{display:flex;align-items:center;gap:7px;margin:3px 0}
+#tip .t-k{width:14px;height:0;border-top:3px solid;border-radius:2px;flex:none}
+#tip .t-v{font-weight:700;color:var(--ink-1);margin-left:auto;padding-left:12px}
+.meter{height:10px;border-radius:6px;background:var(--seq1);overflow:hidden;margin:6px 0 4px}
+html.dark .meter{background:#12233c}
+.meter>div{height:100%;border-radius:6px;background:var(--s1)}
+/* ---------- callouts ---------- */
+.callout{border-left:3px solid var(--s1);background:var(--surface-1);border-radius:0 12px 12px 0;border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:12px 16px;font-size:13px;color:var(--ink-2);margin:12px 0}
+.callout b{color:var(--ink-1)}
+.callout.warn{border-left-color:var(--warn)} .callout.crit{border-left-color:var(--crit)} .callout.good{border-left-color:var(--good)}
+.mt{margin-top:12px}
+.note{font-size:11px;color:var(--ink-3);margin-top:8px}
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:20px}
+.modal{background:var(--surface-1);border-radius:16px;max-width:620px;width:100%;max-height:85vh;overflow:auto;padding:22px}
+.modal h3{font-size:16px;margin-bottom:6px}
+.modal p{font-size:12.5px;color:var(--ink-2);margin:8px 0}
+.drop{border:2px dashed var(--axis);border-radius:12px;padding:26px;text-align:center;color:var(--ink-3);font-size:13px;cursor:pointer;margin:12px 0}
+.drop.on{border-color:var(--s1);color:var(--s1)}
+textarea.json{width:100%;height:150px;font-family:ui-monospace,monospace;font-size:11px;background:var(--plane);color:var(--ink-1);border:1px solid var(--border);border-radius:8px;padding:8px}
+.src-tag{font-size:10.5px;color:var(--ink-3)}
+</style>
+</head>
+<body>
+<div id="tip"></div>
+<header>
+  <div class="hd-top">
+    <div class="logo">EF</div>
+    <div>
+      <div class="hd-title">Electrofab · Procurement Decision Dashboard</div>
+      <div class="hd-sub" id="hd-sub">FCAW welding wire · Next import LC decision support</div>
+    </div>
+    <div class="hd-actions">
+      <button class="btn" id="btn-refresh">⟳ Refresh data</button>
+      <button class="btn" id="btn-dark">◐</button>
+    </div>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<div class="wrap">
+  <div class="filters" id="filters">
+    <span class="fl-label">Product</span>
+    <div class="chipset" id="f-product"></div>
+    <span class="fl-label">Period</span>
+    <div class="chipset" id="f-period"></div>
+    <span class="fl-label">Importer</span>
+    <select class="fsel" id="f-importer"></select>
+    <span class="badge" id="f-country">Origin: CN 🇨🇳</span>
+    <span class="badge" id="f-lc">LC view: Current offer vs Previous LC</span>
+    <span class="badge" id="data-stamp"></span>
+  </div>
+  <main id="pages"></main>
+</div>
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>Refresh source data</h3>
+    <p>Drop the <b>Electrofab_Dashboard_Source_Data.xlsx</b> workbook here (or click to browse). Every KPI, chart and the scenario model recalculates instantly — no other edits needed.</p>
+    <div class="drop" id="drop">📄 Drop source workbook here, or click to browse</div>
+    <input type="file" id="file-inp" accept=".xlsx,.xlsm" style="display:none">
+    <p>Alternatively, paste a data JSON exported from this dashboard:</p>
+    <textarea class="json" id="json-inp" placeholder='{"stock": [...], ...}'></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn primary" id="json-apply">Apply JSON</button>
+      <button class="btn" id="json-export">Export current data as JSON</button>
+      <button class="btn" id="modal-close" style="margin-left:auto">Close</button>
+    </div>
+    <p class="note" id="refresh-msg"></p>
+  </div>
+</div>
+<script>
+/* ================= 1. CENTRAL DATA MODEL =================
+   All source figures live here. Use "Refresh data" to load the
+   companion source workbook — or edit this block directly.     */
+let DATA = {
+meta:{company:"Akij ElectroFab Ltd.",updated:"2026-07-12",stockPeriod:"01–11 Jul 2026",periodDays:11,asOf:"2026-07-12",spoolKg:15},
+items:[
+ {id:"fcw12",name:"FCW 1.2 mm",full:"Welding Wire (FCAW E71T-1) 1.2 mm · 15 kg spool",code:"14415147",uom:"Packet"},
+ {id:"fcw16",name:"FCW 1.6 mm",full:"Welding Wire (FCAW E71T-1) 1.6 mm · 15 kg spool",code:"14415143",uom:"Packet"}
+],
+stock:[
+ {item:"fcw12",open:1434,inQ:0,out:350,close:1084,value:2484393.26,rate:2291.88,action:"Immediately Buy"},
+ {item:"fcw16",open:288,inQ:0,out:0,close:288,value:652601.89,rate:2265.98,action:"Immediately Buy"}
+],
+salesPlan:[
+ {item:"fcw12",qty:1084,value:2484393.26,action:"Within This Month"},
+ {item:"fcw16",qty:288,value:652601.89,action:"Within This Month"}
+],
+receipts:[ /* import history for FIFO ageing (from industry import records) */
+ {date:"2026-01-27",fcw12:24840,fcw16:0,cfr:0.81},
+ {date:"2026-06-26",fcw12:45360,fcw16:4320,cfr:0.885}
+],
+offer:{
+ supplier:"Changshu Longteng Special Steel Co., Ltd.",pol:"Shanghai, China",
+ shipmentTime:"Within 30 days after LC",payment:"100% LC at sight",partialShipment:true,box:"OEM",
+ lines:[{item:"fcw12",qty:92880,cfr:0.90},{item:"fcw16",qty:6480,cfr:0.89}]
+},
+tariff:{hs:"8311.20.00",prevFY:"FY 2025–26",curFY:"FY 2026–27",
+ rows:[{d:"CD",label:"Customs Duty",p:.25,c:.25},{d:"RD",label:"Regulatory Duty",p:.05,c:.03},
+       {d:"SD",label:"Supplementary Duty",p:0,c:0},{d:"VAT",label:"Value Added Tax",p:.15,c:.15},
+       {d:"AIT",label:"Advance Income Tax",p:.05,c:.05},{d:"AT",label:"Advance Tax",p:.08,c:.08}]},
+prevLC:{ /* Previous LC — actual audited figures from workbook (cached) */
+ qty:{fcw12:45360,fcw16:4320},cfr:{fcw12:.885,fcw16:.875},cfrUSD:43923.6,exRate:123.236,
+ cost:{av:6869670.19,cfr:5412999.52,cd:1717417.55,rd:206090.11,sd:0,vat:1325995.66,ait:343483.51,at:659488.34,
+       port:49834.63,agent:4500,cnf:34000,transport:125000,unload:12300,insurance:20937,lc:14089.64,df:7365,
+       totalCost:9926135.96,landed:7597168.45},
+ perSpool:{landed12:2296.09,landed16:2270.14},
+ pnl:{grossRev:10267200,outVAT:1381104,netSales:8886096,cogs:7597168.45,gp:1288927.55,gpPct:.14505,
+      admin:272481,selling:380000,logistics:15000,marketing:10000,ebitda:611446.55,ebitdaPct:.06881,
+      dep:29048,ebit:582398.55,finance:111669.03,ebt:470729.52,tax:343483.51,eat:127246.01,
+      gpPct12:.14421,gpPct16:.15388}
+},
+industry:{country:"CN",months:["Jan 26","Feb 26","Mar 26","Apr 26","May 26","Jun 26"],exRateForSavings:123,
+ importers:[
+  {name:"Akij Electrofab Limited",self:true, q:[24840,null,null,null,null,49680], p:[0.81,null,null,null,null,0.88]},
+  {name:"BSRM Wires Limited",      q:[null,null,null,51840,null,51840], p:[null,null,null,0.86,null,0.91]},
+  {name:"Candatex Trade BD",       q:[25920,null,25920,null,null,null], p:[0.80,null,0.81,null,null,null]},
+  {name:"Global Electrode Limited",q:[25920,null,null,null,25920,null], p:[0.84,null,null,null,0.87,null]},
+  {name:"Kuaile Global Trading",   q:[null,1600,null,null,null,null],   p:[null,1.08,null,null,null,null]},
+  {name:"Marn Steel Structure Ltd.",q:[null,null,null,37800,null,null], p:[null,null,null,0.93,null,null]},
+  {name:"MHM International",       q:[null,null,1000,null,null,null],   p:[null,null,0.98,null,null,null]},
+  {name:"NDE Steel Structures Ltd.",q:[24840,null,null,16600,null,24840],p:[0.87,null,null,0.82,null,0.89]},
+  {name:"Radi Corporation",        q:[null,9525,null,null,null,null],   p:[null,0.91,null,null,null,null]},
+  {name:"Tools Mart",              q:[null,null,null,25920,null,null],  p:[null,null,null,0.89,null,null]},
+  {name:"Essence Industrial Gases",q:[null,null,null,null,24840,null],  p:[null,null,null,null,0.76,null]}
+ ],
+ industryAvg:{q:[76680,11125,26920,132160,50760,76680], p:[0.836197183,0.934449438,0.816315007,0.880880751,0.816170213,0.903521127]}
+},
+market:{
+ summary:"Akij ElectroFab enters Bangladesh's welding-consumables market in FY 2026–27 with a phased trading strategy (imported MIG/FCW wire, abrasives and power tools), anchored in import substitution and infrastructure-driven demand. Combined trading volume is planned to rise from ~1,465 t to 5,100 t over five years (~36.6% CAGR). Principal execution risks: supply-chain resilience and working-capital discipline, given heavy import dependence and a credit-driven trade culture.",
+ cagr:.366, abrasivesImported:.90, migMarketMT:12000,
+ migStructure:[{seg:"Institutional importer",share:.42,mt:5040},{seg:"Local importer",share:.27,mt:3240},
+               {seg:"BSRM Wire",share:.17,mt:2040},{seg:"Others",share:.14,mt:1680}],
+ abrasives:[{cat:"Conventional abrasives",usd:30},{cat:"Diamond cut-off wheels",usd:25},
+            {cat:"Drill bits & hole saws",usd:20},{cat:"Flap discs",usd:7}],
+ strategy:[{y:"26-27",mig:200,migSh:.06,fcw:700,fcwSh:.19,tools:565,toolsSh:.03},
+           {y:"27-28",mig:450,migSh:.14,fcw:900,fcwSh:.25,tools:700,toolsSh:.04},
+           {y:"28-29",mig:600,migSh:.19,fcw:1200,fcwSh:.33,tools:1500,toolsSh:.08},
+           {y:"29-30",mig:900,migSh:.28,fcw:1500,fcwSh:.42,tools:1800,toolsSh:.10},
+           {y:"30-31",mig:1200,migSh:.38,fcw:1800,fcwSh:.50,tools:2400,toolsSh:.13}]
+},
+budget:{fy:"FY 2026–27",
+ rows:[
+  {kpi:"Total revenue",last:8708657,budget:428760208,chg:"48.2×",ind:"10–15% growth",money:true},
+  {kpi:"Gross profit",last:1085880,budget:42139791,chg:"38.8×",ind:"8–10%",money:true},
+  {kpi:"EBITDA",last:-6489995,budget:28636901,chg:"turnaround",ind:"3–5%",money:true},
+  {kpi:"Net profit (EAT)",last:-7676789,budget:4106427,chg:"turnaround",ind:"—",money:true},
+  {kpi:"Break-even volume (t)",last:172,budget:261,chg:"+89 t",ind:"—"},
+  {kpi:"Market demand (MT)",last:2400,budget:2450,chg:"+2.1%",ind:"2,400 MT"},
+  {kpi:"Cost / revenue",last:.77,budget:.76,chg:"−1 pt",ind:"0.75",pct:true},
+  {kpi:"Market share",last:.001,budget:.03,chg:"×30",ind:"1–2%",pct:true},
+  {kpi:"Revenue / employee",last:2177164,budget:30625729,chg:"14×",ind:"—",money:true},
+  {kpi:"Manpower",last:4,budget:14,chg:"+10",ind:"—"}
+ ],
+ fcwVolumePlanT:700, budgetGpPct:42139791/428760208, budgetEbitdaPct:28636901/428760208
+}
+};
+
+/* ================= 2. SCENARIO ASSUMPTIONS ================= */
+const BASE_ASSUMP = {
+ exRate:123.2367, assessPrice:1.10,
+ qty12:46440, qty16:3240, cfr12:0.90, cfr16:0.89,
+ cd:25, rd:5, sd:0, vat:15, ait:5, at:7.5,
+ oceanFreight:0, marineRate:0.30, tolerance:5, insStamp:500,
+ lcCommRate:0.30, lcStamp:500, cnfRate:0.35,
+ port:50000, agent:4500, unload:12300, transport:125000, otherLanding:0,
+ financeRatePct:13.5, financeMonths:1,
+ sellPrice:3100, outputVAT:417,
+ admin:205293.76, selling:121536.27, logistics:15400.80, marketing:62575.78, dep:14912.08
+};
+let A = {...BASE_ASSUMP};
+
+/* Faithful port of the workbook's live formulas ("Landed Cost, P&L (Current Offer)" sheet) */
+function computeModel(a){
+ const EX=a.exRate, q12=a.qty12, q16=a.qty16, q=q12+q16;
+ const cfrU12=q12*a.cfr12, cfrU16=q16*a.cfr16, cfrUSD=cfrU12+cfrU16;
+ const AV=(qty)=>{const V=EX*qty*a.assessPrice, ins=V*.01, land=(V+ins)*.01; return V+ins+land;};
+ const av12=AV(q12), av16=AV(q16), av=av12+av16;
+ const r={cd:a.cd/100, rd:a.rd/100, sd:a.sd/100, vat:a.vat/100, ait:a.ait/100, at:a.at/100};
+ const cd12=av12*r.cd, cd16=av16*r.cd, rd12=av12*r.rd, rd16=av16*r.rd, sd12=av12*r.sd, sd16=av16*r.sd;
+ const vat12=(av12+cd12+rd12+sd12)*r.vat, vat16=(av16+cd16+rd16+sd16)*r.vat;
+ const ait12=av12*r.ait, ait16=av16*r.ait;
+ const at12=(av12+cd12+rd12+sd12)*r.at, at16=(av16+cd16+rd16+sd16)*r.at;
+ const cfrBDT=cfrUSD*EX, cnf=av*(a.cnfRate/100);
+ /* marine insurance (workbook working) */
+ const insBase=(q*(1+a.tolerance/100))*EX, marine=insBase*(a.marineRate/100);
+ const insurance=marine+marine*.15+(+a.insStamp||0);
+ /* LC opening / bank charges */
+ const lcc=EX*q*a.assessPrice*(a.lcCommRate/100), lc=lcc+lcc*.15+(+a.lcStamp||0);
+ /* DF VAT — tiered C&F commission per customs, then taxes on it */
+ const t1=Math.min(av,5e5)*.01, t2=Math.min(Math.max(av-5e5,0),5e5)*.0075,
+       t3=Math.min(Math.max(av-1e6,0),1e6)*.005, t4=Math.max(av-2e6,0)*.0025;
+ const comm=t1+t2+t3+t4, df=comm*.10+comm*.15+30+4.5+800+120;
+ const cd_=cd12+cd16, rd_=rd12+rd16, sd_=sd12+sd16, vat_=vat12+vat16, ait_=ait12+ait16, at_=at12+at16;
+ const shared=(+a.port||0)+cnf+(+a.transport||0)+insurance+lc+df+(+a.oceanFreight||0)+(+a.otherLanding||0);
+ const unalloc=(+a.agent||0)+(+a.unload||0);
+ const totalCost=cfrBDT+cd_+rd_+sd_+vat_+ait_+at_+shared+unalloc;
+ const landed=totalCost-vat_-ait_-at_;
+ const sh12=cfrUSD?cfrU12/cfrUSD:0, sh16=cfrUSD?cfrU16/cfrUSD:0;
+ const landed12=cfrU12*EX+cd12+rd12+sd12+shared*sh12, landed16=cfrU16*EX+cd16+rd16+sd16+shared*sh16;
+ const sp12=q12/DATA.meta.spoolKg, sp16=q16/DATA.meta.spoolKg, sp=sp12+sp16;
+ /* P&L */
+ const rev=a.sellPrice*sp, ovat=a.outputVAT*sp, net=rev-ovat;
+ const rev12=a.sellPrice*sp12, net12=rev12-a.outputVAT*sp12, net16=net-net12;
+ const cogs=landed, gp=net-cogs, gp12=net12-landed12, gp16=net16-landed16;
+ const oh=(+a.admin||0)+(+a.selling||0)+(+a.logistics||0)+(+a.marketing||0);
+ const ebitda=gp-oh, ebit=ebitda-(+a.dep||0);
+ const finance=totalCost*(a.financeRatePct/100)/12*a.financeMonths;
+ const ebt=ebit-finance, tax=ait_, eat=ebt-tax;
+ return {
+  q12,q16,q,sp12,sp16,sp,cfrU12,cfrU16,cfrUSD,av12,av16,av,
+  lines:{cfrBDT,cd:cd_,rd:rd_,sd:sd_,vat:vat_,ait:ait_,at:at_,port:+a.port||0,agent:+a.agent||0,cnf,
+         transport:+a.transport||0,unload:+a.unload||0,insurance,lc,df,ocean:+a.oceanFreight||0,other:+a.otherLanding||0},
+  perItem:{cd12,cd16,rd12,rd16,sd12,sd16,vat12,vat16,ait12,ait16,at12,at16,
+           cfr12:cfrU12*EX,cfr16:cfrU16*EX,landed12,landed16},
+  totalCost,landed,
+  landedPS12:sp12?landed12/sp12:0, landedPS16:sp16?landed16/sp16:0, landedPS:sp?(landed12+landed16)/sp:0,
+  pnl:{rev,ovat,net,net12,net16,cogs,gp,gp12,gp16,gpPct:net?gp/net:0,gpPct12:net12?gp12/net12:0,gpPct16:net16?gp16/net16:0,
+       oh,ebitda,ebitdaPct:net?ebitda/net:0,ebit,finance,ebt,tax,eat,eatPS:sp?eat/sp:0,gpPS:sp?gp/sp:0}
+ };
+}
+let M = computeModel(A);
+
+/* ---- derived inventory analytics ---- */
+function invAnalytics(){
+ const days=DATA.meta.periodDays, out=[], totVal=DATA.stock.reduce((s,r)=>s+r.value,0);
+ const sorted=[...DATA.stock].sort((x,y)=>y.value-x.value); let cum=0;
+ const abc={}; sorted.forEach(r=>{const start=cum/totVal; cum+=r.value; abc[r.item]=start<.8?"A":(start<.95?"B":"C");});
+ DATA.stock.forEach(s=>{
+  const it=DATA.items.find(i=>i.id===s.item), plan=DATA.salesPlan.find(p=>p.item===s.item);
+  const daily=s.out/days, cover=daily>0?s.close/daily:Infinity;
+  const planDaysLeft=19; /* remaining days of July from as-of date */
+  const planDaily=plan?plan.qty/planDaysLeft:0, planCover=planDaily>0?s.close/planDaily:Infinity;
+  const turn=s.open>0?s.out/s.open:0;
+  const cls = daily===0 ? "Non-moving" : (cover>90?"Slow-moving":(cover>45?"Watch":"Fast-moving"));
+  out.push({...s,name:it.name,full:it.full,daily,cover,planDaily,planCover,turnover:turn,cls,abc:abc[s.item],
+    valueShare:s.value/totVal,
+    stockoutRun: daily>0?new Date(+new Date(DATA.meta.asOf)+cover*864e5):null,
+    stockoutPlan: planDaily>0?new Date(+new Date(DATA.meta.asOf)+planCover*864e5):null});
+ });
+ return out;
+}
+/* FIFO ageing from receipts */
+function ageing(){
+ const asOf=new Date(DATA.meta.asOf), buckets=["0–30 d","31–60 d","61–90 d","90+ d"];
+ return DATA.stock.map(s=>{
+  const it=DATA.items.find(i=>i.id===s.item);
+  let remain=s.close*DATA.meta.spoolKg; const b=[0,0,0,0];
+  for(const rc of [...DATA.receipts].sort((x,y)=>new Date(y.date)-new Date(x.date))){
+   const rq=s.item==="fcw12"?rc.fcw12:rc.fcw16; if(!rq||remain<=0) continue;
+   const take=Math.min(remain,rq); remain-=take;
+   const age=(asOf-new Date(rc.date))/864e5;
+   b[age<=30?0:age<=60?1:age<=90?2:3]+=take;
+  }
+  if(remain>0) b[3]+=remain;
+  return {item:s.item,name:it.name,kg:s.close*DATA.meta.spoolKg,buckets:b,labels:buckets};
+ });
+}
+
+/* ---- formatting ---- */
+const nf0=new Intl.NumberFormat("en-US",{maximumFractionDigits:0});
+const nf2=new Intl.NumberFormat("en-US",{maximumFractionDigits:2,minimumFractionDigits:2});
+function fmtN(v,d=0){return (d?nf2:nf0).format(v);}
+function fmtM(v){const a=Math.abs(v);if(a>=1e7)return (v/1e6).toFixed(2)+"M";if(a>=1e6)return (v/1e6).toFixed(2)+"M";if(a>=1e3)return (v/1e3).toFixed(1)+"K";return nf0.format(v);}
+function fmtBDT(v){return "৳"+fmtM(v);}
+function fmtPct(v,d=1){return (v*100).toFixed(d)+"%";}
+function fmtD(dt){return dt?dt.toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}):"—";}
+function esc(s){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
+
+/* ================= 3. CHART TOOLKIT (inline SVG, dataviz spec) ================= */
+const NS="http://www.w3.org/2000/svg";
+function sv(tag,attrs={},parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+const tip=document.getElementById("tip");
+function showTip(ev,html){tip.innerHTML=html;tip.style.display="block";moveTip(ev);}
+function moveTip(ev){const r=tip.getBoundingClientRect();let x=ev.clientX+14,y=ev.clientY+12;
+ if(x+r.width>innerWidth-8)x=ev.clientX-r.width-12; if(y+r.height>innerHeight-8)y=ev.clientY-r.height-10;
+ tip.style.left=x+"px";tip.style.top=y+"px";}
+function hideTip(){tip.style.display="none";}
+function tipHTML(head,rows){return `<div class="t-h">${esc(head)}</div>`+rows.map(r=>
+ `<div class="t-r">${r.c?`<span class="t-k" style="border-color:${r.c}"></span>`:""}<span>${esc(r.k)}</span><span class="t-v">${esc(r.v)}</span></div>`).join("");}
+function niceTicks(max,n=4){if(max<=0)return[0,1];const raw=max/n,mag=Math.pow(10,Math.floor(Math.log10(raw)));
+ const step=[1,2,2.5,5,10].map(m=>m*mag).find(s=>max/s<=n)|| mag*10;const t=[];for(let v=0;v<=max+1e-9;v+=step)t.push(v);
+ if(t[t.length-1]<max)t.push(t[t.length-1]+step);return t;}
+
+/* card scaffold: chart + table toggle */
+function makeCard(el,{title,sub,legend,tableHead,tableRows,src}){
+ el.classList.add("card");
+ el.innerHTML=`<div class="card-hd"><div><h3>${esc(title)}</h3>${sub?`<div class="sub">${esc(sub)}</div>`:""}</div>
+  <div class="spacer"></div><button class="tbtn">⊞ Table</button></div>
+  ${legend?`<div class="legend">${legend.map(l=>`<span class="lg-it">${l.line?`<span class="lg-ln" style="border-color:${l.c}"></span>`:`<span class="lg-sw" style="background:${l.c}"></span>`}${esc(l.n)}</span>`).join("")}</div>`:""}
+  <div class="chart-box"></div><div class="tbl-box" style="display:none;overflow:auto"></div>
+  ${src?`<div class="note">${esc(src)}</div>`:""}`;
+ const box=el.querySelector(".chart-box"),tb=el.querySelector(".tbl-box"),btn=el.querySelector(".tbtn");
+ tb.innerHTML=`<table class="dt"><thead><tr>${tableHead.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead>
+  <tbody>${tableRows.map(r=>`<tr>${r.map(c=>`<td>${esc(String(c))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+ let showT=false;
+ btn.onclick=()=>{showT=!showT;box.style.display=showT?"none":"";tb.style.display=showT?"":"none";btn.textContent=showT?"📊 Chart":"⊞ Table";};
+ return box;
+}
+
+/* grouped / simple column chart */
+function colChart(box,{cats,series,fmt=fmtM,h=230,rotate=false,directLabel=true}){
+ box.innerHTML="";const W=640,H=h,padL=56,padR=10,padT=14,padB=rotate?58:26;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"},box);
+ const maxV=Math.max(...series.flatMap(s=>s.values.map(v=>Math.abs(v||0))),1e-9);
+ const ticks=niceTicks(maxV);const top=ticks[ticks.length-1];
+ const iw=W-padL-padR, ih=H-padT-padB, y=v=>padT+ih-(v/top)*ih;
+ ticks.forEach(t=>{sv("line",{x1:padL,x2:W-padR,y1:y(t),y2:y(t),stroke:"var(--grid)","stroke-width":1},svg);
+  const tx=sv("text",{x:padL-6,y:y(t)+4,"text-anchor":"end","font-size":10,fill:"var(--ink-3)"},svg);tx.textContent=fmtM(t);});
+ sv("line",{x1:padL,x2:W-padR,y1:y(0),y2:y(0),stroke:"var(--axis)","stroke-width":1},svg);
+ const bw=iw/cats.length, gInner=2, nS=series.length;
+ const barW=Math.min(24,(bw*0.62-gInner*(nS-1))/nS);
+ cats.forEach((c,i)=>{
+  const cx=padL+bw*i+bw/2, tot=nS*barW+(nS-1)*gInner, x0=cx-tot/2;
+  series.forEach((s,j)=>{
+   const v=s.values[i];if(v==null)return;
+   const bx=x0+j*(barW+gInner), by=y(Math.max(v,0)), bh=Math.max(Math.abs(y(v)-y(0)),1.5);
+   const r=Math.min(4,barW/2);
+   const p=sv("path",{d:`M${bx},${by+bh}L${bx},${by+r}Q${bx},${by} ${bx+r},${by}L${bx+barW-r},${by}Q${bx+barW},${by} ${bx+barW},${by+r}L${bx+barW},${by+bh}Z`,fill:s.color},svg);
+   const hit=sv("rect",{x:bx-3,y:padT,width:barW+6,height:ih,fill:"transparent"},svg);
+   [p,hit].forEach(n=>{n.addEventListener("pointermove",ev=>showTip(ev,tipHTML(c,series.filter(ss=>ss.values[i]!=null).map(ss=>({k:ss.name,v:fmt(ss.values[i]),c:ss.color})))));
+    n.addEventListener("pointerleave",hideTip);});
+   if(directLabel&&nS<=1){const t=sv("text",{x:bx+barW/2,y:by-4,"text-anchor":"middle","font-size":9.5,"font-weight":600,fill:"var(--ink-2)"},svg);t.textContent=fmt(v);}
+  });
+  const lbl=sv("text",{x:cx,y:H-padB+16,"text-anchor":rotate?"end":"middle","font-size":10.5,fill:"var(--ink-2)"},svg);
+  if(rotate)lbl.setAttribute("transform",`rotate(-32 ${cx} ${H-padB+16})`);
+  lbl.textContent=c;
+ });
+}
+
+/* horizontal bars */
+function hbarChart(box,{rows,fmt=fmtM,h=null,maxV=null}){
+ box.innerHTML="";const W=640,rowH=30,padT=6,padB=6,padL=150,padR=64;
+ const H=h||rows.length*rowH+padT+padB;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`},box);
+ const mx=maxV||Math.max(...rows.map(r=>r.v),1e-9);const iw=W-padL-padR;
+ rows.forEach((r,i)=>{
+  const cy=padT+rowH*i+rowH/2, bw=Math.max((r.v/mx)*iw,1.5), bh=Math.min(18,rowH-10);
+  const t=sv("text",{x:padL-8,y:cy+3.5,"text-anchor":"end","font-size":11,fill:r.em?"var(--ink-1)":"var(--ink-2)","font-weight":r.em?600:400},svg);
+  t.textContent=r.label.length>22?r.label.slice(0,21)+"…":r.label;
+  const rr=Math.min(4,bh/2);
+  const p=sv("path",{d:`M${padL},${cy-bh/2}L${padL+bw-rr},${cy-bh/2}Q${padL+bw},${cy-bh/2} ${padL+bw},${cy-bh/2+rr}L${padL+bw},${cy+bh/2-rr}Q${padL+bw},${cy+bh/2} ${padL+bw-rr},${cy+bh/2}L${padL},${cy+bh/2}Z`,fill:r.c},svg);
+  const vt=sv("text",{x:padL+bw+6,y:cy+3.5,"font-size":10.5,"font-weight":600,fill:"var(--ink-2)"},svg);vt.textContent=fmt(r.v);
+  const hit=sv("rect",{x:0,y:cy-rowH/2,width:W,height:rowH,fill:"transparent"},svg);
+  [p,hit].forEach(n=>{n.addEventListener("pointermove",ev=>showTip(ev,tipHTML(r.label,[{k:r.tipK||"Value",v:fmt(r.v),c:r.c}].concat(r.extra||[]))));n.addEventListener("pointerleave",hideTip);});
+  if(r.onclick){p.style.cursor="pointer";p.addEventListener("click",r.onclick);}
+ });
+}
+
+/* line chart with crosshair tooltip */
+function lineChart(box,{x,series,fmt=v=>v,h=240,yFmt=null,band=null}){
+ box.innerHTML="";const W=640,H=h,padL=48,padR=70,padT=12,padB=26;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`},box);
+ const all=series.flatMap(s=>s.values.filter(v=>v!=null));
+ let mn=Math.min(...all),mx=Math.max(...all);const span=mx-mn||mx*.1||1;mn=Math.max(0,mn-span*.25);mx=mx+span*.18;
+ const iw=W-padL-padR,ih=H-padT-padB;
+ const X=i=>padL+(x.length>1?i/(x.length-1):0.5)*iw, Y=v=>padT+ih-((v-mn)/(mx-mn))*ih;
+ const ticks=4;for(let i=0;i<=ticks;i++){const v=mn+(mx-mn)*i/ticks;
+  sv("line",{x1:padL,x2:W-padR,y1:Y(v),y2:Y(v),stroke:"var(--grid)","stroke-width":1},svg);
+  const t=sv("text",{x:padL-6,y:Y(v)+3.5,"text-anchor":"end","font-size":10,fill:"var(--ink-3)"},svg);t.textContent=(yFmt||fmt)(v);}
+ x.forEach((c,i)=>{const t=sv("text",{x:X(i),y:H-8,"text-anchor":"middle","font-size":10.5,fill:"var(--ink-2)"},svg);t.textContent=c;});
+ series.forEach(s=>{
+  const pts=s.values.map((v,i)=>v!=null?[X(i),Y(v)]:null);
+  let d="",started=false;
+  pts.forEach(p=>{if(!p){started=false;return;}d+=(started?"L":"M")+p[0]+","+p[1];started=true;});
+  if(s.bridge){const nn=pts.filter(p=>p);if(nn.length>1){sv("path",{d:nn.map((p,k)=>(k?"L":"M")+p[0]+","+p[1]).join(""),fill:"none",stroke:s.color,"stroke-width":1.5,"stroke-dasharray":"3 4",opacity:.7},svg);}}
+  if(s.area){let ad=d;const first=pts.find(p=>p),last=[...pts].reverse().find(p=>p);
+   if(first&&last){ad+=`L${last[0]},${Y(mn)}L${first[0]},${Y(mn)}Z`;sv("path",{d:ad,fill:s.color,opacity:.1},svg);}}
+  sv("path",{d,fill:"none",stroke:s.color,"stroke-width":2,"stroke-linecap":"round","stroke-linejoin":"round","stroke-dasharray":s.dash?"5 4":"none"},svg);
+  pts.forEach((p,i)=>{if(!p)return;if(s.markers||s.values.filter(v=>v!=null).length<=3||i===pts.length-1){
+   sv("circle",{cx:p[0],cy:p[1],r:5.5,fill:s.color,stroke:"var(--surface-1)","stroke-width":2},svg);}});
+  const lastIdx=s.values.map((v,i)=>v!=null?i:null).filter(v=>v!=null).pop();
+  if(lastIdx!=null&&s.endLabel!==false){const t=sv("text",{x:X(lastIdx)+9,y:Y(s.values[lastIdx])+3.5,"font-size":10.5,"font-weight":600,fill:"var(--ink-2)"},svg);t.textContent=s.short||s.name;}
+ });
+ /* crosshair */
+ const cross=sv("line",{y1:padT,y2:padT+ih,stroke:"var(--axis)","stroke-width":1,visibility:"hidden"},svg);
+ const hit=sv("rect",{x:padL,y:padT,width:iw,height:ih,fill:"transparent"},svg);
+ hit.addEventListener("pointermove",ev=>{
+  const r=svg.getBoundingClientRect(),px=(ev.clientX-r.left)*(W/r.width);
+  let bi=0,bd=1e9;x.forEach((c,i)=>{const d=Math.abs(X(i)-px);if(d<bd){bd=d;bi=i;}});
+  cross.setAttribute("x1",X(bi));cross.setAttribute("x2",X(bi));cross.setAttribute("visibility","visible");
+  showTip(ev,tipHTML(x[bi],series.filter(s=>s.values[bi]!=null).map(s=>({k:s.name,v:fmt(s.values[bi]),c:s.color}))));
+ });
+ hit.addEventListener("pointerleave",()=>{cross.setAttribute("visibility","hidden");hideTip();});
+}
+
+/* waterfall */
+function waterfall(box,{steps,fmt=fmtM,h=250}){
+ box.innerHTML="";const W=640,H=h,padL=52,padR=10,padT=14,padB=54;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`},box);
+ let run=0;const bars=steps.map(s=>{if(s.total){const b={...s,y0:0,y1:run};return b;}const b={...s,y0:run,y1:run+s.delta};run+=s.delta;return b;});
+ const mx=Math.max(...bars.map(b=>Math.max(b.y0,b.y1)))*1.08;
+ const iw=W-padL-padR,ih=H-padT-padB,y=v=>padT+ih-(v/mx)*ih,bw=Math.min(26,iw/steps.length*.55);
+ niceTicks(mx).forEach(t=>{if(t>mx)return;sv("line",{x1:padL,x2:W-padR,y1:y(t),y2:y(t),stroke:"var(--grid)"},svg);
+  const tx=sv("text",{x:padL-6,y:y(t)+3.5,"text-anchor":"end","font-size":10,fill:"var(--ink-3)"},svg);tx.textContent=fmtM(t);});
+ bars.forEach((b,i)=>{
+  const cx=padL+iw*(i+.5)/steps.length,x0=cx-bw/2;
+  const top=y(Math.max(b.y0,b.y1)),bh=Math.max(Math.abs(y(b.y0)-y(b.y1)),2);
+  const col=b.total?"var(--s1)":"var(--ctx)";
+  const c=b.color||col;
+  const r=Math.min(4,bw/2);
+  const p=sv("path",{d:`M${x0},${top+bh}L${x0},${top+r}Q${x0},${top} ${x0+r},${top}L${x0+bw-r},${top}Q${x0+bw},${top} ${x0+bw},${top+r}L${x0+bw},${top+bh}Z`,fill:c},svg);
+  if(i<bars.length-1&&!b.total){sv("line",{x1:x0+bw,x2:padL+iw*(i+1.5)/steps.length-bw/2,y1:y(b.y1),y2:y(b.y1),stroke:"var(--axis)","stroke-width":1},svg);}
+  const lt=sv("text",{x:cx,y:top-5,"text-anchor":"middle","font-size":9.5,"font-weight":600,fill:"var(--ink-2)"},svg);
+  lt.textContent=b.total?fmt(b.y1):((b.delta>=0?"+":"−")+fmt(Math.abs(b.delta)));
+  const xl=sv("text",{x:cx,y:H-padB+14,"text-anchor":"end","font-size":10,fill:"var(--ink-2)",transform:`rotate(-30 ${cx} ${H-padB+14})`},svg);
+  xl.textContent=b.label;
+  p.addEventListener("pointermove",ev=>showTip(ev,tipHTML(b.label,[{k:b.total?"Total":"Change",v:fmt(b.total?b.y1:b.delta),c}])));
+  p.addEventListener("pointerleave",hideTip);
+ });
+}
+
+/* dumbbell compare */
+function dumbbell(box,{rows,fmt,h=null}){
+ box.innerHTML="";const W=640,rowH=52,padT=8,padB=10,padL=150,padR=30;
+ const H=h||rows.length*rowH+padT+padB;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`},box);
+ const iw=W-padL-padR;
+ rows.forEach((r,i)=>{
+  const cy=padT+rowH*i+rowH/2;
+  const lo=Math.min(r.a,r.b),hi=Math.max(r.a,r.b),span=hi-lo||Math.abs(hi)||1;
+  const X=v=>padL+iw*(0.18+((v-lo)/span)*0.64);
+  const t=sv("text",{x:padL-10,y:cy+3.5,"text-anchor":"end","font-size":11.5,fill:"var(--ink-1)","font-weight":600},svg);t.textContent=r.label;
+  sv("line",{x1:padL+iw*0.06,x2:padL+iw*0.94,y1:cy,y2:cy,stroke:"var(--grid)","stroke-width":1},svg);
+  sv("line",{x1:X(r.a),x2:X(r.b),y1:cy,y2:cy,stroke:"var(--axis)","stroke-width":2},svg);
+  const ca=sv("circle",{cx:X(r.a),cy,r:7,fill:"var(--s5)",stroke:"var(--surface-1)","stroke-width":2},svg);
+  const cb=sv("circle",{cx:X(r.b),cy,r:7,fill:"var(--s1)",stroke:"var(--surface-1)","stroke-width":2},svg);
+  const f=r.fmt||fmt;
+  const la=sv("text",{x:X(r.a),y:cy-13,"text-anchor":"middle","font-size":10,fill:"var(--ink-3)"},svg);la.textContent=f(r.a);
+  const lb=sv("text",{x:X(r.b),y:cy+23,"text-anchor":"middle","font-size":10.5,"font-weight":700,fill:"var(--ink-1)"},svg);lb.textContent=f(r.b);
+  const hit=sv("rect",{x:0,y:cy-rowH/2,width:W,height:rowH,fill:"transparent"},svg);
+  [ca,cb,hit].forEach(n=>{n.addEventListener("pointermove",ev=>showTip(ev,tipHTML(r.label,[{k:r.na,v:f(r.a),c:css("--s5")},{k:r.nb,v:f(r.b),c:css("--s1")},{k:"Δ",v:(r.b-r.a>=0?"+":"−")+f(Math.abs(r.b-r.a)).replace("৳","৳")}])));n.addEventListener("pointerleave",hideTip);});
+ });
+}
+
+/* heatmap (importer × month price) */
+function heatChart(box,{rows,cols,get,fmt,h=null}){
+ box.innerHTML="";const W=640,rowH=26,padT=26,padL=150,padR=8,padB=4;
+ const H=h||rows.length*rowH+padT+padB;
+ const svg=sv("svg",{viewBox:`0 0 ${W} ${H}`},box);
+ const vals=[];rows.forEach((r,ri)=>cols.forEach((c,ci)=>{const v=get(ri,ci);if(v!=null)vals.push(v);}));
+ const mn=Math.min(...vals),mx=Math.max(...vals);
+ const ramp=["--seq1","--seq2","--seq3","--seq4","--seq5","--seq6","--seq7"];
+ const cw=(W-padL-padR)/cols.length;
+ cols.forEach((c,ci)=>{const t=sv("text",{x:padL+cw*ci+cw/2,y:16,"text-anchor":"middle","font-size":10.5,fill:"var(--ink-2)"},svg);t.textContent=c;});
+ rows.forEach((r,ri)=>{
+  const cy=padT+rowH*ri;
+  const t=sv("text",{x:padL-8,y:cy+rowH/2+3.5,"text-anchor":"end","font-size":10.5,fill:r.em?"var(--ink-1)":"var(--ink-2)","font-weight":r.em?600:400},svg);
+  t.textContent=r.label.length>22?r.label.slice(0,21)+"…":r.label;
+  cols.forEach((c,ci)=>{
+   const v=get(ri,ci);
+   const rect=sv("rect",{x:padL+cw*ci+1,y:cy+1,width:cw-2,height:rowH-2,rx:4,
+     fill:v==null?"var(--plane)":`var(${ramp[Math.min(ramp.length-1,Math.floor((v-mn)/(mx-mn||1)*(ramp.length-1)+.5))]})`},svg);
+   if(v!=null){
+    const lum=(v-mn)/(mx-mn||1);
+    const tx=sv("text",{x:padL+cw*ci+cw/2,y:cy+rowH/2+3.5,"text-anchor":"middle","font-size":9.5,"font-weight":600,fill:lum>.55?"#fff":"var(--ink-1)"},svg);
+    tx.textContent=fmt(v);
+   }
+   rect.addEventListener("pointermove",ev=>showTip(ev,tipHTML(r.label+" · "+c,[{k:"Unit price",v:v==null?"no import":fmt(v)+" USD/kg"}])));
+   rect.addEventListener("pointerleave",hideTip);
+  });
+ });
+}
+
+/* ================= 4. PAGES ================= */
+const PAGES=[
+ ["overview","Executive Overview"],["assump","Assumptions & Scenario"],["inventory","Inventory"],
+ ["sales","Sales Planning"],["tariff","Tariff Comparison"],["landed","Landed Cost"],
+ ["compare","Offer vs Previous LC"],["industry","Industry Intelligence"],
+ ["marketpg","Market Intelligence"],["budget","Budget FY 26–27"]
+];
+const F={product:"all",period:[0,5],importer:"all"};
+const $=id=>document.getElementById(id);
+const pagesEl=$("pages"),tabsEl=$("tabs");
+PAGES.forEach(([id,name],i)=>{
+ const b=document.createElement("button");b.className="tab"+(i===0?" active":"");b.textContent=name;
+ b.onclick=()=>{document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));b.classList.add("active");
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("pg-"+id).classList.add("active");};
+ tabsEl.appendChild(b);
+ const d=document.createElement("section");d.className="page"+(i===0?" active":"");d.id="pg-"+id;pagesEl.appendChild(d);
+});
+
+function ragClass(status){return status==="g"?"g":status==="a"?"a":"r";}
+function kpiTile({label,value,small,delta,deltaGood,rag,spark,sub}){
+ return `<div class="kpi"><div class="lbl">${rag?`<span class="dot ${rag}"></span>`:""}${esc(label)}</div>
+  <div class="val">${value}${small?` <small>${esc(small)}</small>`:""}</div>
+  ${delta!=null?`<div class="delta"><b class="${deltaGood==null?"":deltaGood?"up-good":"down-bad"}">${esc(delta)}</b>${sub?` <span>${esc(sub)}</span>`:""}</div>`:(sub?`<div class="delta">${esc(sub)}</div>`:"")}
+  ${spark||""}</div>`;
+}
+function spark(values,color){
+ const W=110,H=26,mn=Math.min(...values),mx=Math.max(...values);
+ const pts=values.map((v,i)=>`${(i/(values.length-1))*W},${H-3-((v-mn)/(mx-mn||1))*(H-8)}`).join(" ");
+ return `<svg viewBox="0 0 ${W} ${H}" style="position:absolute;right:14px;bottom:12px;width:96px;height:24px"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round"/><circle cx="${W}" cy="${H-3-((values[values.length-1]-mn)/(mx-mn||1))*(H-8)}" r="3" fill="${color}"/></svg>`;
+}
+
+/* ---------- Executive Overview ---------- */
+function renderOverview(){
+ const el=$("pg-overview"); M=computeModel(A);
+ const inv=invAnalytics(), p=DATA.prevLC, ind=DATA.industry;
+ const stockPk=DATA.stock.reduce((s,r)=>s+r.close,0), stockVal=DATA.stock.reduce((s,r)=>s+r.value,0);
+ const cover12=inv.find(i=>i.item==="fcw12");
+ const savedUSD=savingsCalc().totUSD, savedBDT=savingsCalc().totBDT;
+ const iAvgJun=ind.industryAvg.p[5], aeflJun=0.88;
+ const gpOK=M.pnl.gpPct>=DATA.budget.budgetGpPct?"g":(M.pnl.gpPct>=DATA.budget.budgetGpPct*.8?"a":"r");
+ const ebOK=M.pnl.ebitdaPct>=DATA.budget.budgetEbitdaPct?"g":(M.pnl.ebitdaPct>=DATA.budget.budgetEbitdaPct*.7?"a":"r");
+ const covOK=cover12.cover>=45?"g":cover12.cover>=25?"a":"r";
+ const rateOK=A.cfr12<=iAvgJun?"g":"r";
+ el.innerHTML=`
+ <h2 class="pg">Executive Overview</h2>
+ <p class="pg-sub">Decision support for the next import LC — ${esc(DATA.offer.supplier)} offer of ${fmtN(DATA.offer.lines[0].qty+DATA.offer.lines[1].qty)} kg FCAW wire. Scenario currently models <b>${fmtN(M.q)} kg</b> (${fmtN(M.sp)} spools). All figures react to the Assumptions page.</p>
+ <div class="grid g4">
+  ${kpiTile({label:"Landed cost / spool (1.2 mm)",value:"৳"+fmtN(M.landedPS12),rag:M.landedPS12<=p.perSpool.landed12*1.05?"a":"r",delta:(M.landedPS12/p.perSpool.landed12-1>=0?"+":"")+fmtPct(M.landedPS12/p.perSpool.landed12-1),deltaGood:M.landedPS12<=p.perSpool.landed12,sub:"vs prev LC ৳"+fmtN(p.perSpool.landed12)})}
+  ${kpiTile({label:"Landed cost / spool (1.6 mm)",value:"৳"+fmtN(M.landedPS16),rag:M.landedPS16<=p.perSpool.landed16*1.05?"a":"r",delta:(M.landedPS16/p.perSpool.landed16-1>=0?"+":"")+fmtPct(M.landedPS16/p.perSpool.landed16-1),deltaGood:M.landedPS16<=p.perSpool.landed16,sub:"vs prev LC ৳"+fmtN(p.perSpool.landed16)})}
+  ${kpiTile({label:"Forecast profit / spool (EAT)",value:"৳"+fmtN(M.pnl.eatPS,2),rag:M.pnl.eatPS>0?"g":"r",delta:"GP/spool ৳"+fmtN(M.pnl.gpPS),sub:"at ৳"+fmtN(A.sellPrice)+" selling price"})}
+  ${kpiTile({label:"Estimated procurement value",value:fmtBDT(M.totalCost),small:"$"+fmtN(M.cfrUSD)+" CFR",sub:"total cost incl. duties & charges"})}
+  ${kpiTile({label:"Gross profit %",value:fmtPct(M.pnl.gpPct),rag:gpOK,delta:(M.pnl.gpPct-p.pnl.gpPct>=0?"+":"")+((M.pnl.gpPct-p.pnl.gpPct)*100).toFixed(1)+" pts",deltaGood:M.pnl.gpPct>=p.pnl.gpPct,sub:"vs last LC "+fmtPct(p.pnl.gpPct)})}
+  ${kpiTile({label:"EBITDA %",value:fmtPct(M.pnl.ebitdaPct),rag:ebOK,delta:(M.pnl.ebitdaPct-p.pnl.ebitdaPct>=0?"+":"")+((M.pnl.ebitdaPct-p.pnl.ebitdaPct)*100).toFixed(1)+" pts",deltaGood:M.pnl.ebitdaPct>=p.pnl.ebitdaPct,sub:"vs last LC "+fmtPct(p.pnl.ebitdaPct)})}
+  ${kpiTile({label:"Last LC gross profit %",value:fmtPct(p.pnl.gpPct),sub:"actual · GP ৳"+fmtM(p.pnl.gp)})}
+  ${kpiTile({label:"Last LC EBITDA %",value:fmtPct(p.pnl.ebitdaPct),sub:"actual · EBITDA ৳"+fmtM(p.pnl.ebitda)})}
+  ${kpiTile({label:"Current stock",value:fmtN(stockPk),small:"spools",rag:"a",sub:"৳"+fmtM(stockVal)+" · "+fmtN(stockPk*15)+" kg",spark:spark([1722,1650,1560,1490,1434,1084],css("--s1"))})}
+  ${kpiTile({label:"Inventory coverage (1.2 mm)",value:fmtN(cover12.cover),small:"days",rag:covOK,delta:"Plan basis: "+fmtN(cover12.planCover)+" days",sub:"run-rate "+cover12.daily.toFixed(1)+" spools/day"})}
+  ${kpiTile({label:"Procurement savings (6 mo)",value:fmtBDT(savedBDT),rag:"g",delta:"$"+fmtN(savedUSD,2)+" saved vs industry avg",deltaGood:true,sub:"across "+savingsCalc().shipments+" shipments"})}
+  ${kpiTile({label:"Industry avg vs Electrofab rate",value:"$"+A.cfr12.toFixed(2),small:"/kg offer",rag:rateOK,delta:(A.cfr12<=iAvgJun?"−":"+")+fmtPct(Math.abs(A.cfr12/iAvgJun-1)),deltaGood:A.cfr12<=iAvgJun,sub:"industry Jun avg $"+iAvgJun.toFixed(3)})}
+ </div>
+ <div class="grid g2 mt">
+  <div id="ov-c1"></div><div id="ov-c2"></div>
+ </div>
+ <div class="callout ${cover12.cover<45?"warn":"good"}"><b>Procurement window:</b> at the current run-rate (${cover12.daily.toFixed(1)} spools/day) 1.2 mm stock lasts to <b>${fmtD(cover12.stockoutRun)}</b>; on the sales-plan rate it runs out by <b>${fmtD(cover12.stockoutPlan)}</b>. Supplier ships within 30 days of LC + ~2–3 weeks transit ⇒ <b>open the LC now</b> to avoid a stock-out gap. The 1.6 mm position (${DATA.stock[1].close} spools, zero sales this period) already covers the plan — challenge the extra ${fmtN(DATA.offer.lines[1].qty)} kg of 1.6 mm in the offer.</div>`;
+ const box1=makeCard($("ov-c1"),{title:"Margin bridge — this offer vs last LC vs budget",sub:"Gross profit % and EBITDA %",
+  legend:[{n:"Current offer (scenario)",c:css("--s1")},{n:"Previous LC (actual)",c:css("--s5")},{n:"Budget FY 26–27",c:css("--s3")}],
+  tableHead:["Metric","Current offer","Previous LC","Budget"],
+  tableRows:[["Gross profit %",fmtPct(M.pnl.gpPct),fmtPct(p.pnl.gpPct),fmtPct(DATA.budget.budgetGpPct)],
+             ["EBITDA %",fmtPct(M.pnl.ebitdaPct),fmtPct(p.pnl.ebitdaPct),fmtPct(DATA.budget.budgetEbitdaPct)]],
+  src:"Sources: scenario model · Last LC Cost & P&L · Budget 2026-2027"});
+ colChart(box1,{cats:["Gross profit %","EBITDA %"],series:[
+  {name:"Current offer",color:css("--s1"),values:[M.pnl.gpPct*100,M.pnl.ebitdaPct*100]},
+  {name:"Previous LC",color:css("--s5"),values:[p.pnl.gpPct*100,p.pnl.ebitdaPct*100]},
+  {name:"Budget",color:css("--s3"),values:[DATA.budget.budgetGpPct*100,DATA.budget.budgetEbitdaPct*100]}],
+  fmt:v=>v.toFixed(1)+"%",directLabel:false});
+ const s=savingsCalc();
+ const box2=makeCard($("ov-c2"),{title:"CFR price — Electrofab vs industry average",sub:"USD/kg, FCW imports from CN, Jan–Jun 2026",
+  legend:[{n:"Industry average",c:css("--ctx"),line:true},{n:"Akij Electrofab",c:css("--s1"),line:true}],
+  tableHead:["Month","Industry avg $/kg","Electrofab $/kg"],
+  tableRows:DATA.industry.months.map((m,i)=>[m,DATA.industry.industryAvg.p[i].toFixed(3),(DATA.industry.importers[0].p[i]??"—")]),
+  src:"Source: Industry Import Data (last 6 months)"});
+ lineChart(box2,{x:DATA.industry.months,series:[
+  {name:"Industry avg",short:"Industry",color:css("--ctx"),values:DATA.industry.industryAvg.p},
+  {name:"Electrofab",short:"AEFL",color:css("--s1"),values:DATA.industry.importers[0].p,markers:true,bridge:true}],
+  fmt:v=>"$"+v.toFixed(3),yFmt:v=>"$"+v.toFixed(2)});
+}
+function savingsCalc(){
+ const a=DATA.industry.importers.find(i=>i.self),avg=DATA.industry.industryAvg;
+ let totUSD=0,shipments=0;
+ a.q.forEach((q,i)=>{if(q&&a.p[i]!=null){totUSD+=(avg.p[i]-a.p[i])*q;shipments++;}});
+ return {totUSD,totBDT:totUSD*DATA.industry.exRateForSavings,shipments};
+}
+
+/* ---------- Assumptions & Scenario ---------- */
+const INPUTS=[
+ ["Commercial",[
+  ["exRate","USD exchange rate","BDT/USD",4],["cfr12","CFR price — 1.2 mm","USD/kg",3],["cfr16","CFR price — 1.6 mm","USD/kg",3],
+  ["qty12","Quantity — 1.2 mm","kg",0],["qty16","Quantity — 1.6 mm","kg",0],["assessPrice","Customs assessable price","USD/kg",2]]],
+ ["Duties & taxes (% of assessable value)",[
+  ["cd","Customs Duty (CD)","%",2],["rd","Regulatory Duty (RD)","%",2],["sd","Supplementary Duty (SD)","%",2],
+  ["vat","VAT","%",2],["ait","AIT","%",2],["at","AT (Advance Tax)","%",2]]],
+ ["Freight, insurance & landing",[
+  ["oceanFreight","Ocean freight (extra, FOB only)","BDT",0],["marineRate","Marine insurance rate","% of insured value",3],
+  ["tolerance","Insurance tolerance","%",1],["cnfRate","Clearing & forwarding","% of AV",3],
+  ["port","Port charges","BDT",0],["agent","Shipping agent charge","BDT",0],
+  ["transport","Local transport (Ctg → warehouse)","BDT",0],["unload","Unloading","BDT",0],
+  ["lcCommRate","Bank / LC opening commission","%",3],["otherLanding","Other landing costs","BDT",0]]],
+ ["Selling & operating (for P&L)",[
+  ["sellPrice","Selling price / spool","BDT",0],["outputVAT","Output VAT / spool","BDT",0],
+  ["financeRatePct","Finance cost rate","%/yr",2],["financeMonths","Financing period","months",1],
+  ["admin","Administrative expenses","BDT",0],["selling","Selling expenses","BDT",0],
+  ["logistics","Logistics expenses","BDT",0],["marketing","Marketing expenses","BDT",0],["dep","Depreciation","BDT",0]]]
+];
+const PRESETS=[
+ {n:"Base — current offer",set:{}},
+ {n:"RD 3% (FY 26–27 tariff)",set:{rd:3}},
+ {n:"Full offer quantity",set:{qty12:92880,qty16:6480}},
+ {n:"Taka slides to 128",set:{exRate:128}},
+ {n:"Negotiate CFR −2¢",set:{cfr12:0.88,cfr16:0.87}}
+];
+function renderAssump(){
+ const el=$("pg-assump");
+ el.innerHTML=`<h2 class="pg">Assumptions & Scenario Planning</h2>
+ <p class="pg-sub">Edit any input — every KPI, the landed-cost statement and the P&L recalculate instantly using the workbook's own formulas. Presets apply common what-ifs; deltas are shown against the base current-offer case.</p>
+ <div class="card"><div class="preset-row">${PRESETS.map((p,i)=>`<button class="chip ${i===0?"active":""}" data-pr="${i}">${esc(p.n)}</button>`).join("")}
+ <button class="btn" id="as-reset" style="margin-left:auto">Reset all</button></div>
+ <div id="as-inputs"></div></div>
+ <div class="grid g4 mt" id="as-out"></div>
+ <div class="grid g2 mt"><div id="as-c1"></div><div id="as-c2"></div></div>`;
+ const ai=$("as-inputs");
+ ai.innerHTML=INPUTS.map(([g,rows])=>`<div class="as-group">${esc(g)}</div><div class="inp-grid">${rows.map(([k,l,u,d])=>
+  `<div class="inp"><label>${esc(l)}</label><input type="number" step="any" data-k="${k}" value="${(+A[k]).toFixed(d)}"><span class="unit">${esc(u)}</span></div>`).join("")}</div>`).join("");
+ ai.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",()=>{
+  const v=parseFloat(inp.value);if(!isFinite(v))return;A[inp.dataset.k]=v;refreshCalc();}));
+ el.querySelectorAll("[data-pr]").forEach(b=>b.onclick=()=>{
+  el.querySelectorAll("[data-pr]").forEach(x=>x.classList.remove("active"));b.classList.add("active");
+  A={...BASE_ASSUMP,...PRESETS[+b.dataset.pr].set};renderAssump();refreshCalc();});
+ $("as-reset").onclick=()=>{A={...BASE_ASSUMP};renderAssump();refreshCalc();};
+ renderAssumpOut();
+}
+function renderAssumpOut(){
+ M=computeModel(A);const B=computeModel(BASE_ASSUMP);
+ const d=(v,b)=>v-b, out=$("as-out");if(!out)return;
+ const tile=(label,v,b,fmt,goodUp)=>{const dd=d(v,b);
+  return kpiTile({label,value:fmt(v),rag:null,delta:(Math.abs(dd)<1e-9?"= base":( (dd>0?"+":"−")+fmt(Math.abs(dd)).replace("৳","৳") )+" vs base"),deltaGood:Math.abs(dd)<1e-9?null:(goodUp?dd>0:dd<0)});};
+ out.innerHTML=
+  tile("Landed cost / spool (1.2 mm)",M.landedPS12,B.landedPS12,v=>"৳"+fmtN(v),false)+
+  tile("Landed cost / spool (1.6 mm)",M.landedPS16,B.landedPS16,v=>"৳"+fmtN(v),false)+
+  tile("Total landed cost",M.landed,B.landed,v=>fmtBDT(v),false)+
+  tile("LC value (CFR)",M.cfrUSD,B.cfrUSD,v=>"$"+fmtN(v),false)+
+  tile("Gross profit",M.pnl.gp,B.pnl.gp,v=>fmtBDT(v),true)+
+  tile("Gross profit %",M.pnl.gpPct,B.pnl.gpPct,v=>fmtPct(v),true)+
+  tile("EBITDA %",M.pnl.ebitdaPct,B.pnl.ebitdaPct,v=>fmtPct(v),true)+
+  tile("Net profit (EAT)",M.pnl.eat,B.pnl.eat,v=>fmtBDT(v),true);
+ const c1=makeCard($("as-c1"),{title:"Scenario vs base — landed cost per spool",sub:"1.2 mm product",
+  legend:[{n:"Base",c:css("--ctx")},{n:"Scenario",c:css("--s1")}],
+  tableHead:["Case","৳ / spool"],tableRows:[["Base",fmtN(B.landedPS12)],["Scenario",fmtN(M.landedPS12)],["Previous LC",fmtN(DATA.prevLC.perSpool.landed12)]]});
+ colChart(c1,{cats:["Base","Scenario","Prev LC"],series:[{name:"৳/spool",color:css("--s1"),
+  values:[B.landedPS12,M.landedPS12,DATA.prevLC.perSpool.landed12]}],fmt:v=>"৳"+fmtN(v)});
+ const c2=makeCard($("as-c2"),{title:"Scenario P&L cascade",sub:"Net sales → EAT (total LC, ৳)",
+  tableHead:["Line","Amount ৳"],
+  tableRows:[["Net sales",fmtN(M.pnl.net)],["COGS (landed)",fmtN(-M.pnl.cogs)],["Gross profit",fmtN(M.pnl.gp)],["Overheads",fmtN(-M.pnl.oh)],["EBITDA",fmtN(M.pnl.ebitda)],["Depreciation",fmtN(-A.dep)],["Finance cost",fmtN(-M.pnl.finance)],["Tax (AIT)",fmtN(-M.pnl.tax)],["EAT",fmtN(M.pnl.eat)]]});
+ waterfall(c2,{steps:[
+  {label:"Net sales",delta:M.pnl.net,color:css("--s1")},{label:"COGS",delta:-M.pnl.cogs},
+  {label:"Overheads",delta:-M.pnl.oh},{label:"Dep.",delta:-A.dep},{label:"Finance",delta:-M.pnl.finance},
+  {label:"Tax (AIT)",delta:-M.pnl.tax},{label:"EAT",total:true,color:css("--s2")}],fmt:fmtM});
+}
+function refreshCalc(){renderAssumpOut();renderOverview();renderLanded();renderCompare();renderTariff();renderBudget();}
+
+/* ---------- Inventory ---------- */
+function renderInventory(){
+ const el=$("pg-inventory"),inv=invAnalytics(),ag=ageing();
+ const rows=inv.filter(r=>F.product==="all"||r.item===F.product);
+ el.innerHTML=`<h2 class="pg">Inventory Dashboard</h2>
+ <p class="pg-sub">Stock position for ${esc(DATA.meta.stockPeriod)} with movement-based classification, FIFO ageing from import receipts, ABC analysis and procurement actions.</p>
+ <div class="grid g4" id="inv-tiles"></div>
+ <div class="grid g2 mt"><div id="inv-c1"></div><div id="inv-c2"></div></div>
+ <div class="grid g2 mt"><div id="inv-c3"></div><div class="card" id="inv-tbl"></div></div>`;
+ $("inv-tiles").innerHTML=rows.map(r=>{
+  const ragC=r.cls==="Fast-moving"?"g":r.cls==="Watch"?"a":"r";
+  return kpiTile({label:r.name+" — "+r.cls,value:fmtN(r.close),small:"spools",rag:ragC,
+   delta:isFinite(r.cover)?fmtN(r.cover)+" days cover":"No movement in period",deltaGood:r.cls==="Fast-moving",
+   sub:"ABC class "+r.abc+" · ৳"+fmtM(r.value)+" · turn "+(r.turnover*100).toFixed(0)+"%"});}).join("")
+  +kpiTile({label:"Slow / non-moving exposure",value:fmtBDT(inv.filter(r=>r.cls==="Non-moving"||r.cls==="Slow-moving").reduce((s,r)=>s+r.value,0)),rag:inv.some(r=>r.cls==="Non-moving")?"a":"g",sub:inv.filter(r=>r.cls!=="Fast-moving").map(r=>r.name).join(", ")||"none"})
+  +kpiTile({label:"Recommended action",value:"Buy 1.2 mm",small:"now",rag:"r",sub:"1.6 mm: hold — full June receipt unsold"});
+ const c1=makeCard($("inv-c1"),{title:"Stock movement — "+DATA.meta.stockPeriod,sub:"Spools (15 kg packets)",
+  legend:[{n:"Opening",c:css("--ctx")},{n:"Out (sold)",c:css("--s3")},{n:"Closing",c:css("--s1")}],
+  tableHead:["Item","Opening","In","Out","Closing"],
+  tableRows:inv.map(r=>[r.name,r.open,r.inQ,r.out,r.close])});
+ colChart(c1,{cats:inv.map(r=>r.name),series:[
+  {name:"Opening",color:css("--ctx"),values:inv.map(r=>r.open)},
+  {name:"Out",color:css("--s3"),values:inv.map(r=>r.out)},
+  {name:"Closing",color:css("--s1"),values:inv.map(r=>r.close)}],fmt:v=>fmtN(v)+" pk",directLabel:false});
+ const c2=makeCard($("inv-c2"),{title:"Inventory ageing (FIFO vs import receipts)",sub:"kg of closing stock by age bucket",
+  legend:[{n:"0–30 d",c:css("--seq2")},{n:"31–60 d",c:css("--seq4")},{n:"61–90 d",c:css("--seq5")},{n:"90+ d",c:css("--seq7")}],
+  tableHead:["Item","0–30 d","31–60 d","61–90 d","90+ d"],
+  tableRows:ag.map(r=>[r.name,...r.buckets.map(b=>fmtN(b)+" kg")]),
+  src:"Receipts: 24,840 kg (27 Jan 26) · 49,680 kg (26 Jun 26). All current stock is from the June shipment."});
+ colChart(c2,{cats:ag.map(r=>r.name),series:[0,1,2,3].map(bi=>({name:ag[0].labels[bi],color:css(["--seq2","--seq4","--seq5","--seq7"][bi]),values:ag.map(r=>r.buckets[bi])})),fmt:v=>fmtN(v)+" kg",directLabel:false});
+ const c3=makeCard($("inv-c3"),{title:"Coverage vs 45-day target",sub:"Days of stock at current run-rate",
+  tableHead:["Item","Run-rate cover","Plan-rate cover"],
+  tableRows:inv.map(r=>[r.name,isFinite(r.cover)?fmtN(r.cover)+" d":"∞ (no sales)",fmtN(r.planCover)+" d"])});
+ c3.innerHTML=inv.map(r=>{
+  const v=isFinite(r.cover)?r.cover:120,pct=Math.min(v/90*100,100);
+  const col=r.cls==="Non-moving"?"var(--warn)":v<25?"var(--crit)":v<45?"var(--warn)":"var(--good)";
+  return `<div style="margin:10px 0 16px"><div style="display:flex;justify-content:space-between;font-size:12px"><b>${esc(r.name)}</b><span>${isFinite(r.cover)?fmtN(r.cover)+" days":"no movement"} · plan ${fmtN(r.planCover)} d</span></div>
+  <div class="meter"><div style="width:${pct}%;background:${col}"></div></div>
+  <div class="note">target ≥ 45 days · LC lead time ≈ 45–50 days (30 d production + transit)</div></div>`;}).join("");
+ $("inv-tbl").innerHTML=`<h3>Stock register & actions</h3><div class="sub">ABC by closing value · classification by movement</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>Item</th><th>Code</th><th>Close</th><th>Value ৳</th><th>ABC</th><th>Class</th><th>Action</th></tr></thead><tbody>
+ ${inv.map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(DATA.items.find(i=>i.id===r.item).code)}</td><td>${fmtN(r.close)}</td><td>${fmtN(r.value)}</td>
+ <td><span class="pill ${r.abc==="A"?"b":"g"}">${r.abc}</span></td>
+ <td><span class="pill ${r.cls==="Fast-moving"?"g":r.cls==="Watch"?"a":"r"}">${r.cls}</span></td>
+ <td><span class="pill ${r.cls==="Non-moving"?"a":"r"}">${r.cls==="Non-moving"?"Hold / push sales":esc(r.action)}</span></td></tr>`).join("")}
+ </tbody></table></div>
+ <div class="callout warn mt" style="margin-bottom:0"><b>1.6 mm flag:</b> the entire June receipt (288 spools / 4,320 kg) is still on hand with zero sales in ${DATA.meta.periodDays} days — yet the new offer adds another ${fmtN(DATA.offer.lines[1].qty)} kg. Consider trimming or re-phasing the 1.6 mm line.</div>`;
+}
+
+/* ---------- Sales Planning ---------- */
+function renderSales(){
+ const el=$("pg-sales"),inv=invAnalytics();
+ el.innerHTML=`<h2 class="pg">Sales Planning Dashboard</h2>
+ <p class="pg-sub">July plan targets clearing the full closing stock ("within this month"). Projections compare the plan rate against the actual 1–11 Jul run-rate.</p>
+ <div class="grid g3" id="sl-tiles"></div>
+ <div class="grid g2 mt"><div id="sl-c1"></div><div id="sl-c2"></div></div>
+ <div class="callout" id="sl-rec"></div>`;
+ $("sl-tiles").innerHTML=inv.map(r=>kpiTile({label:r.name+" — July plan",value:fmtN(DATA.salesPlan.find(p=>p.item===r.item).qty),small:"spools",
+  rag:r.daily*20>=DATA.salesPlan.find(p=>p.item===r.item).qty?"g":"a",
+  delta:"Run-rate would sell "+fmtN(r.daily*19)+" by month-end",deltaGood:r.daily*19>=DATA.salesPlan.find(p=>p.item===r.item).qty,
+  sub:"plan needs "+r.planDaily.toFixed(1)+"/day vs actual "+r.daily.toFixed(1)+"/day"})).join("")
+  +kpiTile({label:"Expected stock-out (1.2 mm)",value:fmtD(inv[0].stockoutRun).replace(" 2026",""),rag:"a",delta:"Plan basis: "+fmtD(inv[0].stockoutPlan).replace(" 2026",""),sub:"replenishment arrives ~45–50 d after LC"});
+ const days=[...Array(50)].map((_,i)=>i);
+ const lbl=days.map(i=>{const d=new Date(+new Date(DATA.meta.asOf)+i*864e5);return i%7===0?d.toLocaleDateString("en-GB",{day:"numeric",month:"short"}):"";});
+ const runLine=days.map(i=>Math.max(inv[0].close-inv[0].daily*i,0));
+ const planLine=days.map(i=>Math.max(inv[0].close-inv[0].planDaily*i,0));
+ const c1=makeCard($("sl-c1"),{title:"1.2 mm stock depletion projection",sub:"Spools remaining from 12 Jul 2026",
+  legend:[{n:"At actual run-rate",c:css("--s1"),line:true},{n:"At sales-plan rate",c:css("--s3"),line:true}],
+  tableHead:["Day","Run-rate stock","Plan-rate stock"],
+  tableRows:days.filter(i=>i%7===0).map(i=>[lbl[i]||"+"+i+"d",fmtN(runLine[i]),fmtN(planLine[i])])});
+ lineChart(c1,{x:days.map((i)=>lbl[i]),series:[
+  {name:"Run-rate",color:css("--s1"),values:runLine,area:true,endLabel:false},
+  {name:"Plan rate",color:css("--s3"),values:planLine,dash:true,endLabel:false}],
+  fmt:v=>fmtN(v)+" spools",yFmt:v=>fmtN(v)});
+ const c2=makeCard($("sl-c2"),{title:"Sales plan vs available inventory",sub:"July 2026, spools",
+  legend:[{n:"Available stock",c:css("--s1")},{n:"July sales plan",c:css("--s3")}],
+  tableHead:["Item","Available","Plan"],
+  tableRows:inv.map(r=>[r.name,r.close,DATA.salesPlan.find(p=>p.item===r.item).qty])});
+ colChart(c2,{cats:inv.map(r=>r.name),series:[
+  {name:"Available",color:css("--s1"),values:inv.map(r=>r.close)},
+  {name:"Plan",color:css("--s3"),values:inv.map(r=>DATA.salesPlan.find(p=>p.item===r.item).qty)}],fmt:v=>fmtN(v)+" pk"});
+ $("sl-rec").innerHTML=`<b>Procurement recommendation:</b> the plan sells out both items by 31 Jul, and even the conservative run-rate empties 1.2 mm by ${fmtD(inv[0].stockoutRun)}. With ~45–50 days door-to-door lead time, an LC opened this week lands late August — <b>a 2–4 week 1.2 mm supply gap is already likely; expedite the LC and consider air/partial early shipment of 1.2 mm</b>. For 1.6 mm, demand evidence is weak (zero July sales so far); size the order to plan, not to the offer.`;
+}
+
+/* ---------- Tariff Comparison ---------- */
+function renderTariff(){
+ const el=$("pg-tariff"),T=DATA.tariff;
+ const mNow=computeModel(A);
+ const prevR={...A,cd:T.rows[0].p*100,rd:T.rows[1].p*100,sd:T.rows[2].p*100,vat:T.rows[3].p*100,ait:T.rows[4].p*100,at:T.rows[5].p*100};
+ const curR={...A,cd:T.rows[0].c*100,rd:T.rows[1].c*100,sd:T.rows[2].c*100,vat:T.rows[3].c*100,ait:T.rows[4].c*100,at:T.rows[5].c*100};
+ const mP=computeModel(prevR),mC=computeModel(curR);
+ el.innerHTML=`<h2 class="pg">Tariff Comparison — ${esc(T.prevFY)} vs ${esc(T.curFY)}</h2>
+ <p class="pg-sub">HS ${esc(T.hs)} (flux-cored welding wire). RD drops from 5% to 3% in ${esc(T.curFY)} — worth ৳${fmtN(mP.landedPS12-mC.landedPS12)} per 1.2 mm spool at current scenario quantities. VAT, AIT & AT are recoverable/adjustable and excluded from landed cost.</p>
+ <div class="grid g4" id="tf-tiles"></div>
+ <div class="grid g2 mt"><div id="tf-c1"></div><div id="tf-c2"></div></div>
+ <div class="card mt" id="tf-tbl"></div>`;
+ const dutyDelta=(mC.lines.cd+mC.lines.rd+mC.lines.sd)-(mP.lines.cd+mP.lines.rd+mP.lines.sd);
+ const taxP=mP.lines.cd+mP.lines.rd+mP.lines.sd+mP.lines.vat+mP.lines.ait+mP.lines.at;
+ const taxC=mC.lines.cd+mC.lines.rd+mC.lines.sd+mC.lines.vat+mC.lines.ait+mC.lines.at;
+ $("tf-tiles").innerHTML=
+  kpiTile({label:"Total import tax — "+T.prevFY+" rates",value:fmtBDT(taxP),sub:fmtPct(taxP/mP.av)+" of assessable value"})+
+  kpiTile({label:"Total import tax — "+T.curFY+" rates",value:fmtBDT(taxC),rag:"g",delta:(taxC-taxP<0?"−":"+")+fmtBDT(Math.abs(taxC-taxP)),deltaGood:taxC<taxP,sub:fmtPct(taxC/mC.av)+" of assessable value"})+
+  kpiTile({label:"Non-recoverable duty change",value:(dutyDelta<0?"−":"+")+fmtBDT(Math.abs(dutyDelta)),rag:"g",deltaGood:dutyDelta<0,delta:"CD+RD+SD hit landed cost directly",sub:"RD 5% → 3%"})+
+  kpiTile({label:"Landed cost / spool impact",value:"−৳"+fmtN(mP.landedPS12-mC.landedPS12),rag:"g",delta:"1.2 mm spool, "+T.curFY+" vs "+T.prevFY,deltaGood:true,sub:"scenario currently uses RD "+A.rd+"%"});
+ const c1=makeCard($("tf-c1"),{title:"Duty & tax rates by head",sub:"% of assessable value (VAT/AT on duty-paid value)",
+  legend:[{n:T.prevFY,c:css("--s5")},{n:T.curFY,c:css("--s1")}],
+  tableHead:["Head",T.prevFY,T.curFY,"Δ pts"],
+  tableRows:T.rows.map(r=>[r.d+" — "+r.label,fmtPct(r.p,1),fmtPct(r.c,1),((r.c-r.p)*100).toFixed(1)])});
+ colChart(c1,{cats:T.rows.map(r=>r.d),series:[
+  {name:T.prevFY,color:css("--s5"),values:T.rows.map(r=>r.p*100)},
+  {name:T.curFY,color:css("--s1"),values:T.rows.map(r=>r.c*100)}],fmt:v=>v.toFixed(1)+"%",directLabel:false});
+ const c2=makeCard($("tf-c2"),{title:"Landed cost bridge — tariff year impact",sub:"1.2 mm ৳/spool, scenario quantities",
+  tableHead:["Step","৳/spool"],
+  tableRows:[[T.prevFY+" landed/spool",fmtN(mP.landedPS12)],["RD 5%→3%",fmtN(mC.landedPS12-mP.landedPS12)],[T.curFY+" landed/spool",fmtN(mC.landedPS12)]]});
+ waterfall(c2,{steps:[
+  {label:T.prevFY,delta:mP.landedPS12,color:css("--s5")},
+  {label:"RD 5%→3%",delta:mC.landedPS12-mP.landedPS12},
+  {label:T.curFY,total:true,color:css("--s1")}],fmt:v=>"৳"+fmtN(v)});
+ $("tf-tbl").innerHTML=`<h3>Variance analysis — tax by head at scenario volumes</h3><div class="sub">Applied to assessable value ৳${fmtN(mNow.av)}</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>Head</th><th>${esc(T.prevFY)} rate</th><th>${esc(T.curFY)} rate</th><th>${esc(T.prevFY)} ৳</th><th>${esc(T.curFY)} ৳</th><th>Variance ৳</th><th>Recoverable?</th></tr></thead><tbody>
+ ${T.rows.map(r=>{const key=r.d.toLowerCase();const vp=mP.lines[key]||0,vc=mC.lines[key]||0;const rec=["VAT","AIT","AT"].includes(r.d);
+  return `<tr><td>${r.d} — ${esc(r.label)}</td><td>${fmtPct(r.p,1)}</td><td>${fmtPct(r.c,1)}</td><td>${fmtN(vp)}</td><td>${fmtN(vc)}</td>
+  <td style="color:${vc-vp<0?"var(--delta-good)":vc-vp>0?"var(--crit)":"inherit"}">${vc-vp===0?"—":(vc-vp>0?"+":"−")+fmtN(Math.abs(vc-vp))}</td>
+  <td><span class="pill ${rec?"g":"a"}">${rec?"Yes — excluded from landed":"No — hits landed cost"}</span></td></tr>`;}).join("")}
+ <tr class="tot"><td>Total import taxes</td><td></td><td></td><td>${fmtN(taxP)}</td><td>${fmtN(taxC)}</td><td>${(taxC-taxP>0?"+":"−")+fmtN(Math.abs(taxC-taxP))}</td><td></td></tr>
+ </tbody></table></div>
+ <div class="note">Note: the pre-costing sheet conservatively applies RD 5% and AT 7.5%. Use the "RD 3% (FY 26–27 tariff)" preset on the Assumptions page to price at the new-year rates.</div>`;
+}
+
+/* ---------- Landed Cost ---------- */
+function renderLanded(){
+ const el=$("pg-landed");M=computeModel(A);
+ const L=M.lines,PI=M.perItem;
+ el.innerHTML=`<h2 class="pg">Landed Cost — Current Offer</h2>
+ <p class="pg-sub">Complete costing statement using the workbook's live formulas. Recoverable taxes (VAT, AIT, AT) are financed in the LC cash cycle but excluded from landed cost. Reacts instantly to the Assumptions page.</p>
+ <div class="grid g4" id="ld-tiles"></div>
+ <div class="grid g2 mt"><div id="ld-c1"></div><div id="ld-c2"></div></div>
+ <div class="card mt" id="ld-tbl"></div>`;
+ $("ld-tiles").innerHTML=
+  kpiTile({label:"Total landed cost",value:fmtBDT(M.landed),sub:fmtN(M.q)+" kg · "+fmtN(M.sp)+" spools"})+
+  kpiTile({label:"Landed cost / spool — 1.2 mm",value:"৳"+fmtN(M.landedPS12),sub:"৳"+fmtN(M.landedPS12/15,1)+" per kg"})+
+  kpiTile({label:"Landed cost / spool — 1.6 mm",value:"৳"+fmtN(M.landedPS16),sub:"৳"+fmtN(M.landedPS16/15,1)+" per kg"})+
+  kpiTile({label:"Total cash outlay",value:fmtBDT(M.totalCost),sub:"incl. recoverable VAT/AIT/AT ৳"+fmtM(L.vat+L.ait+L.at)});
+ const steps=[
+  {label:"CFR value",delta:L.cfrBDT,color:css("--s1")},{label:"CD",delta:L.cd},{label:"RD",delta:L.rd}];
+ if(L.sd>0)steps.push({label:"SD",delta:L.sd});
+ if(L.ocean>0)steps.push({label:"Ocean freight",delta:L.ocean});
+ steps.push({label:"Port & handling",delta:L.port+L.agent+L.unload},{label:"C&F",delta:L.cnf},
+  {label:"Transport",delta:L.transport},{label:"Insurance",delta:L.insurance},{label:"Bank / LC",delta:L.lc},
+  {label:"DF & docs",delta:L.df});
+ if(L.other>0)steps.push({label:"Other",delta:L.other});
+ steps.push({label:"Landed cost",total:true,color:css("--s2")});
+ const c1=makeCard($("ld-c1"),{title:"Cost build-up — CFR to landed",sub:"Total LC, ৳",
+  tableHead:["Component","৳"],
+  tableRows:steps.filter(s=>!s.total).map(s=>[s.label,fmtN(s.delta)]).concat([["Landed cost",fmtN(M.landed)]])});
+ waterfall(c1,{steps,fmt:fmtM,h:270});
+ const mix=[["CFR value",L.cfrBDT],["CD",L.cd],["RD",L.rd],["SD",L.sd],["Logistics & handling",L.port+L.agent+L.unload+L.transport+L.ocean],["C&F + DF",L.cnf+L.df],["Insurance + bank",L.insurance+L.lc],["Other",L.other]].filter(r=>r[1]>0);
+ const c2=makeCard($("ld-c2"),{title:"Landed cost mix",sub:"Share of total landed cost",
+  tableHead:["Component","৳","%"],
+  tableRows:mix.map(r=>[r[0],fmtN(r[1]),fmtPct(r[1]/M.landed)])});
+ hbarChart(c2,{rows:mix.map((r,i)=>({label:r[0],v:r[1],c:i===0?css("--s1"):css("--seq"+Math.max(2,5-i)),tipK:"Amount",extra:[{k:"Share",v:fmtPct(r[1]/M.landed)}]})),fmt:fmtM});
+ const tr=(n,t,c12,c16,rec)=>`<tr${rec?' style="opacity:.75"':''}><td>${n}${rec?' <span class="pill g" style="font-size:9.5px">recoverable</span>':""}</td><td>${fmtN(t)}</td><td>${fmtN(c12)}</td><td>${fmtN(c16)}</td><td>${fmtN(M.sp12?c12/M.sp12:0)}</td><td>${fmtN(M.sp16?c16/M.sp16:0)}</td></tr>`;
+ const sh12=M.cfrUSD?M.cfrU12/M.cfrUSD:0,sh16=1-sh12;
+ const shared=L.port+L.cnf+L.transport+L.insurance+L.lc+L.df+L.ocean+L.other;
+ $("ld-tbl").innerHTML=`<h3>Full costing statement</h3><div class="sub">Assessable price $${A.assessPrice}/kg · Ex-rate ${A.exRate} · shared charges allocated by CFR share (as per workbook)</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>Particulars</th><th>Total ৳</th><th>FCW 1.2 mm ৳</th><th>FCW 1.6 mm ৳</th><th>1.2 /spool</th><th>1.6 /spool</th></tr></thead><tbody>
+ <tr class="sec"><td>Assessable value</td><td>${fmtN(M.av)}</td><td>${fmtN(M.av12)}</td><td>${fmtN(M.av16)}</td><td></td><td></td></tr>
+ ${tr("CFR value ($"+fmtN(M.cfrUSD)+" × "+A.exRate+")",L.cfrBDT,PI.cfr12,PI.cfr16)}
+ ${tr("Customs Duty (CD "+A.cd+"%)",L.cd,PI.cd12,PI.cd16)}
+ ${tr("Regulatory Duty (RD "+A.rd+"%)",L.rd,PI.rd12,PI.rd16)}
+ ${tr("Supplementary Duty (SD "+A.sd+"%)",L.sd,PI.sd12,PI.sd16)}
+ ${tr("VAT ("+A.vat+"%)",L.vat,PI.vat12,PI.vat16,true)}
+ ${tr("AIT ("+A.ait+"%)",L.ait,PI.ait12,PI.ait16,true)}
+ ${tr("AT ("+A.at+"%)",L.at,PI.at12,PI.at16,true)}
+ ${tr("Port charge",L.port,L.port*sh12,L.port*sh16)}
+ ${tr("Shipping agent charge (unallocated)",L.agent,0,0)}
+ ${tr("C&F ("+A.cnfRate+"% of AV)",L.cnf,L.cnf*sh12,L.cnf*sh16)}
+ ${tr("Local transport",L.transport,L.transport*sh12,L.transport*sh16)}
+ ${tr("Unloading (unallocated)",L.unload,0,0)}
+ ${tr("Marine insurance",L.insurance,L.insurance*sh12,L.insurance*sh16)}
+ ${tr("LC opening / bank charges",L.lc,L.lc*sh12,L.lc*sh16)}
+ ${tr("DF VAT & documentation",L.df,L.df*sh12,L.df*sh16)}
+ ${L.ocean?tr("Ocean freight",L.ocean,L.ocean*sh12,L.ocean*sh16):""}
+ ${L.other?tr("Other landing costs",L.other,L.other*sh12,L.other*sh16):""}
+ <tr class="tot"><td>Total cost (cash)</td><td>${fmtN(M.totalCost)}</td><td colspan="4"></td></tr>
+ <tr class="tot"><td>Landed cost (excl. VAT/AIT/AT)</td><td>${fmtN(M.landed)}</td><td>${fmtN(PI.landed12)}</td><td>${fmtN(PI.landed16)}</td><td><b>${fmtN(M.landedPS12)}</b></td><td><b>${fmtN(M.landedPS16)}</b></td></tr>
+ </tbody></table></div>`;
+}
+
+/* ---------- Offer vs Previous LC ---------- */
+function renderCompare(){
+ const el=$("pg-compare");M=computeModel(A);
+ const p=DATA.prevLC,L=M.lines,pc=p.cost;
+ el.innerHTML=`<h2 class="pg">Current Offer vs Previous LC</h2>
+ <p class="pg-sub">Current offer at scenario assumptions vs the previous LC's audited actuals (${fmtN(p.qty.fcw12+p.qty.fcw16)} kg @ $${p.cfr.fcw12}/${p.cfr.fcw16}). CFR is up ~1.7%, and the pre-costing conservatively carries RD at 5% (prev LC paid 3%).</p>
+ <div class="grid g4" id="cp-tiles"></div>
+ <div class="grid g2 mt"><div id="cp-c1"></div><div id="cp-c2"></div></div>
+ <div class="card mt" id="cp-tbl"></div>`;
+ const dGP=M.pnl.gpPct-p.pnl.gpPct;
+ $("cp-tiles").innerHTML=
+  kpiTile({label:"Landed / spool — 1.2 mm",value:"৳"+fmtN(M.landedPS12),rag:M.landedPS12<=p.perSpool.landed12?"g":"a",delta:(M.landedPS12>=p.perSpool.landed12?"+":"−")+"৳"+fmtN(Math.abs(M.landedPS12-p.perSpool.landed12))+" vs prev",deltaGood:M.landedPS12<=p.perSpool.landed12,sub:"prev actual ৳"+fmtN(p.perSpool.landed12)})+
+  kpiTile({label:"Gross profit %",value:fmtPct(M.pnl.gpPct),rag:dGP>=0?"g":"a",delta:(dGP>=0?"+":"")+ (dGP*100).toFixed(1)+" pts vs prev",deltaGood:dGP>=0,sub:"prev "+fmtPct(p.pnl.gpPct)})+
+  kpiTile({label:"EBITDA %",value:fmtPct(M.pnl.ebitdaPct),rag:M.pnl.ebitdaPct>=p.pnl.ebitdaPct?"g":"a",delta:(M.pnl.ebitdaPct-p.pnl.ebitdaPct>=0?"+":"")+((M.pnl.ebitdaPct-p.pnl.ebitdaPct)*100).toFixed(1)+" pts",deltaGood:M.pnl.ebitdaPct>=p.pnl.ebitdaPct,sub:"prev "+fmtPct(p.pnl.ebitdaPct)+" (lower overheads then)"})+
+  kpiTile({label:"Savings opportunity",value:fmtBDT((M.landedPS12-p.perSpool.landed12)*M.sp12+(M.landedPS16-p.perSpool.landed16)*M.sp16),rag:"a",delta:"extra landed cost vs prev-LC rates",deltaGood:false,sub:"negotiate CFR / apply RD 3% to recover"});
+ const c1=makeCard($("cp-c1"),{title:"Per-spool economics",sub:"Previous LC (violet) → current offer (blue)",
+  legend:[{n:"Previous LC",c:css("--s5")},{n:"Current offer",c:css("--s1")}],
+  tableHead:["Metric","Previous LC","Current offer"],
+  tableRows:[["Landed ৳/spool 1.2 mm",fmtN(p.perSpool.landed12),fmtN(M.landedPS12)],
+   ["Landed ৳/spool 1.6 mm",fmtN(p.perSpool.landed16),fmtN(M.landedPS16)],
+   ["GP ৳/spool (blended)",fmtN(p.pnl.gp/(p.qty.fcw12/15+p.qty.fcw16/15)),fmtN(M.pnl.gpPS)],
+   ["Selling price/spool",fmtN(3100),fmtN(A.sellPrice)]]});
+ dumbbell(c1,{rows:[
+  {label:"Landed 1.2 mm",a:p.perSpool.landed12,b:M.landedPS12,na:"Prev LC",nb:"Offer",fmt:v=>"৳"+fmtN(v)},
+  {label:"Landed 1.6 mm",a:p.perSpool.landed16,b:M.landedPS16,na:"Prev LC",nb:"Offer",fmt:v=>"৳"+fmtN(v)},
+  {label:"GP / spool",a:p.pnl.gp/((p.qty.fcw12+p.qty.fcw16)/15),b:M.pnl.gpPS,na:"Prev LC",nb:"Offer",fmt:v=>"৳"+fmtN(v)},
+  {label:"EAT / spool",a:p.pnl.eat/((p.qty.fcw12+p.qty.fcw16)/15),b:M.pnl.eatPS,na:"Prev LC",nb:"Offer",fmt:v=>"৳"+fmtN(v)}],fmt:v=>"৳"+fmtN(v)});
+ const c2=makeCard($("cp-c2"),{title:"P&L comparison",sub:"Total LC, ৳ — prev actual vs current scenario",
+  legend:[{n:"Previous LC",c:css("--s5")},{n:"Current offer",c:css("--s1")}],
+  tableHead:["Line","Previous LC","Current offer"],
+  tableRows:[["Net sales",fmtN(p.pnl.netSales),fmtN(M.pnl.net)],["Gross profit",fmtN(p.pnl.gp),fmtN(M.pnl.gp)],["EBITDA",fmtN(p.pnl.ebitda),fmtN(M.pnl.ebitda)],["EAT",fmtN(p.pnl.eat),fmtN(M.pnl.eat)]]});
+ colChart(c2,{cats:["Net sales","Gross profit","EBITDA","EAT"],series:[
+  {name:"Previous LC",color:css("--s5"),values:[p.pnl.netSales,p.pnl.gp,p.pnl.ebitda,p.pnl.eat]},
+  {name:"Current offer",color:css("--s1"),values:[M.pnl.net,M.pnl.gp,M.pnl.ebitda,M.pnl.eat]}],fmt:fmtM,directLabel:false});
+ const cmp=[["CFR value",pc.cfr,L.cfrBDT],["Customs Duty (CD)",pc.cd,L.cd],["Regulatory Duty (RD)",pc.rd,L.rd],["VAT",pc.vat,L.vat],["AIT",pc.ait,L.ait],["AT",pc.at,L.at],
+  ["Port & agent & unloading",pc.port+pc.agent+pc.unload,L.port+L.agent+L.unload],["C&F",pc.cnf,L.cnf],["Transport",pc.transport,L.transport],
+  ["Insurance",pc.insurance,L.insurance],["LC / bank",pc.lc,L.lc],["DF & docs",pc.df,L.df]];
+ $("cp-tbl").innerHTML=`<h3>Cost-line variance</h3><div class="sub">Previous LC actual vs current offer scenario (totals, ৳)</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>Line</th><th>Previous LC</th><th>Current offer</th><th>Variance</th><th>%</th></tr></thead><tbody>
+ ${cmp.map(r=>{const d=r[2]-r[1];return `<tr><td>${r[0]}</td><td>${fmtN(r[1])}</td><td>${fmtN(r[2])}</td>
+  <td style="color:${d>0?"var(--crit)":d<0?"var(--delta-good)":"inherit"}">${d===0?"—":(d>0?"+":"−")+fmtN(Math.abs(d))}</td>
+  <td>${r[1]?((d/r[1])*100).toFixed(1)+"%":"—"}</td></tr>`;}).join("")}
+ <tr class="tot"><td>Total cost</td><td>${fmtN(pc.totalCost)}</td><td>${fmtN(M.totalCost)}</td><td>${(M.totalCost-pc.totalCost>0?"+":"−")+fmtN(Math.abs(M.totalCost-pc.totalCost))}</td><td>${((M.totalCost/pc.totalCost-1)*100).toFixed(1)}%</td></tr>
+ <tr class="tot"><td>Landed cost</td><td>${fmtN(pc.landed)}</td><td>${fmtN(M.landed)}</td><td>${(M.landed-pc.landed>0?"+":"−")+fmtN(Math.abs(M.landed-pc.landed))}</td><td>${((M.landed/pc.landed-1)*100).toFixed(1)}%</td></tr>
+ </tbody></table></div>`;
+}
+
+/* ---------- Industry Intelligence ---------- */
+function renderIndustry(){
+ const el=$("pg-industry"),ind=DATA.industry;
+ const [m0,m1]=F.period;
+ const mIdx=[...Array(ind.months.length).keys()].filter(i=>i>=m0&&i<=m1);
+ const imps=ind.importers.filter(im=>F.importer==="all"||im.name===F.importer||im.self);
+ const s=savingsCalc();
+ el.innerHTML=`<h2 class="pg">Industry Import Intelligence — last 6 months</h2>
+ <p class="pg-sub">FCW imports from ${esc(ind.country)} (Bill of Entry data, Jan–Jun 2026). Electrofab has bought below the industry average on both of its shipments. Filter by period and importer above.</p>
+ <div class="grid g4" id="in-tiles"></div>
+ <div class="grid g2 mt"><div id="in-c1"></div><div id="in-c2"></div></div>
+ <div class="mt" id="in-c3"></div>
+ <div class="card mt" id="in-tbl"></div>`;
+ const aefl=ind.importers.find(i=>i.self);
+ const totQ=mIdx.reduce((sm,i)=>sm+(ind.industryAvg.q[i]||0),0);
+ const aeflQ=mIdx.reduce((sm,i)=>sm+(aefl.q[i]||0),0);
+ const wAvg=(()=>{let n=0,d=0;mIdx.forEach(i=>{if(ind.industryAvg.q[i]){n+=ind.industryAvg.p[i]*ind.industryAvg.q[i];d+=ind.industryAvg.q[i];}});return d?n/d:0;})();
+ const aeflAvg=(()=>{let n=0,d=0;mIdx.forEach(i=>{if(aefl.q[i]&&aefl.p[i]!=null){n+=aefl.p[i]*aefl.q[i];d+=aefl.q[i];}});return d?n/d:0;})();
+ $("in-tiles").innerHTML=
+  kpiTile({label:"Industry import volume",value:fmtN(totQ/1000,1),small:"MT",sub:ind.months[m0]+" – "+ind.months[m1]+" · "+ind.importers.length+" importers"})+
+  kpiTile({label:"Electrofab share of imports",value:fmtPct(totQ?aeflQ/totQ:0),rag:"g",sub:fmtN(aeflQ/1000,1)+" MT of "+fmtN(totQ/1000,1)+" MT"})+
+  kpiTile({label:"Industry avg vs Electrofab $/kg",value:"$"+(aeflAvg||0).toFixed(3),rag:aeflAvg<=wAvg?"g":"r",delta:(aeflAvg<=wAvg?"−":"+")+fmtPct(Math.abs(aeflAvg/wAvg-1))+" vs industry $"+wAvg.toFixed(3),deltaGood:aeflAvg<=wAvg,sub:"volume-weighted, selected period"})+
+  kpiTile({label:"Total savings (6 mo)",value:fmtBDT(s.totBDT),rag:"g",delta:"$"+fmtN(s.totUSD,2)+" across "+s.shipments+" shipments",deltaGood:true,sub:"@ ৳"+ind.exRateForSavings+"/USD"});
+ const c1=makeCard($("in-c1"),{title:"CFR unit price trend",sub:"USD/kg — industry average vs Electrofab shipments",
+  legend:[{n:"Industry average",c:css("--ctx"),line:true},{n:"Electrofab",c:css("--s1"),line:true}],
+  tableHead:["Month","Industry $/kg","Electrofab $/kg","Industry MT"],
+  tableRows:mIdx.map(i=>[ind.months[i],ind.industryAvg.p[i].toFixed(3),aefl.p[i]??"—",fmtN(ind.industryAvg.q[i]/1000,1)]),
+  src:"Electrofab markers = actual shipments (Jan @ $0.81, Jun @ $0.88)"});
+ lineChart(c1,{x:mIdx.map(i=>ind.months[i]),series:[
+  {name:"Industry avg",short:"Industry",color:css("--ctx"),values:mIdx.map(i=>ind.industryAvg.p[i])},
+  {name:"Electrofab",short:"AEFL",color:css("--s1"),values:mIdx.map(i=>aefl.p[i]),markers:true,bridge:true}],
+  fmt:v=>"$"+v.toFixed(3),yFmt:v=>"$"+v.toFixed(2)});
+ const impTot=ind.importers.map(im=>({name:im.name,self:im.self,q:mIdx.reduce((sm,i)=>sm+(im.q[i]||0),0)})).filter(r=>r.q>0).sort((a,b)=>b.q-a.q);
+ const c2=makeCard($("in-c2"),{title:"Importer benchmarking — volume",sub:"kg imported in selected period (click a bar to focus)",
+  tableHead:["Importer","kg","share"],
+  tableRows:impTot.map(r=>[r.name,fmtN(r.q),fmtPct(r.q/totQ)])});
+ hbarChart(c2,{rows:impTot.map(r=>({label:r.name,v:r.q,em:r.self,c:r.self?css("--s1"):css("--ctx"),tipK:"Volume",
+   extra:[{k:"Share",v:fmtPct(r.q/totQ)}],
+   onclick:()=>{F.importer=F.importer===r.name?"all":r.name;$("f-importer").value=F.importer;renderIndustry();}})),
+  fmt:v=>fmtN(v/1000,1)+" t"});
+ const heatRows=imps.map(im=>({label:im.name,em:im.self}));
+ const c3=makeCard($("in-c3"),{title:"Price heat map — importer × month",sub:"CFR USD/kg (darker = higher price paid)",
+  tableHead:["Importer",...mIdx.map(i=>ind.months[i])],
+  tableRows:imps.map(im=>[im.name,...mIdx.map(i=>im.p[i]!=null?"$"+im.p[i].toFixed(2):"—")])});
+ heatChart(c3,{rows:heatRows,cols:mIdx.map(i=>ind.months[i]),
+  get:(ri,ci)=>imps[ri].p[mIdx[ci]],fmt:v=>v.toFixed(2)});
+ const ship=[{m:"Jan 26",q:24840,p:0.81,avg:ind.industryAvg.p[0]},{m:"Jun 26",q:49680,p:0.88,avg:ind.industryAvg.p[5]}];
+ $("in-tbl").innerHTML=`<h3>Electrofab shipment-wise savings vs industry average</h3><div class="sub">Savings = (industry avg − AEFL price) × quantity</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>Shipment</th><th>Qty kg</th><th>AEFL $/kg</th><th>Industry avg $/kg</th><th>Edge</th><th>Saved USD</th><th>Saved ৳ @${ind.exRateForSavings}</th></tr></thead><tbody>
+ ${ship.map(r=>{const sv=(r.avg-r.p)*r.q;return `<tr><td>${r.m}</td><td>${fmtN(r.q)}</td><td>$${r.p.toFixed(2)}</td><td>$${r.avg.toFixed(3)}</td>
+  <td><span class="pill g">−${fmtPct(1-r.p/r.avg)}</span></td><td>${fmtN(sv,2)}</td><td>${fmtN(sv*ind.exRateForSavings)}</td></tr>`;}).join("")}
+ <tr class="tot"><td>Total</td><td>${fmtN(ship.reduce((a,r)=>a+r.q,0))}</td><td></td><td></td><td></td><td>${fmtN(s.totUSD,2)}</td><td>${fmtN(s.totBDT)}</td></tr>
+ </tbody></table></div>
+ <div class="callout good mt" style="margin-bottom:0"><b>Benchmark check on the new offer:</b> $0.90 (1.2 mm) is below BSRM's June price ($0.91) and just under the June industry average ($0.9035) — but prices have risen ~8% since January. Candatex booked $0.80–0.81 in Q1: if timing allows, probe for sub-$0.90 before locking the LC.</div>`;
+}
+
+/* ---------- Market Intelligence ---------- */
+function renderMarket(){
+ const el=$("pg-marketpg"),mk=DATA.market,ind=DATA.industry;
+ el.innerHTML=`<h2 class="pg">Product Market Intelligence</h2>
+ <p class="pg-sub">${esc(mk.summary)}</p>
+ <div class="grid g4" id="mk-tiles"></div>
+ <div class="grid g2 mt"><div id="mk-c1"></div><div id="mk-c2"></div></div>
+ <div class="grid g2 mt"><div id="mk-c3"></div><div class="card" id="mk-risk"></div></div>`;
+ const priceMove=ind.industryAvg.p[5]/ind.industryAvg.p[0]-1;
+ $("mk-tiles").innerHTML=
+  kpiTile({label:"Bangladesh MIG/FCW market",value:fmtN(mk.migMarketMT),small:"MT/yr",sub:"institutional importers hold 42%"})+
+  kpiTile({label:"Trading volume CAGR target",value:fmtPct(mk.cagr),rag:"g",sub:"FY27–FY31, MIG + FCW + tools"})+
+  kpiTile({label:"Price movement (6 mo)",value:"+"+fmtPct(priceMove),rag:"a",delta:"$"+ind.industryAvg.p[0].toFixed(3)+" → $"+ind.industryAvg.p[5].toFixed(3),deltaGood:false,sub:"industry avg CFR, Jan→Jun 2026"})+
+  kpiTile({label:"Abrasives import dependence",value:fmtPct(mk.abrasivesImported,0),sub:"of a ~$82M/yr import market"});
+ const c1=makeCard($("mk-c1"),{title:"MIG wire market structure",sub:"Share of ~12,000 MT annual market",
+  tableHead:["Segment","Share","MT"],
+  tableRows:mk.migStructure.map(r=>[r.seg,fmtPct(r.share,0),fmtN(r.mt)])});
+ hbarChart(c1,{rows:mk.migStructure.map((r,i)=>({label:r.seg,v:r.mt,c:i===2?css("--s5"):css("--seq"+(5-i)),tipK:"Volume",extra:[{k:"Share",v:fmtPct(r.share,0)}]})),fmt:v=>fmtN(v)+" MT"});
+ const c2=makeCard($("mk-c2"),{title:"Price movement timeline",sub:"Industry avg CFR USD/kg with Electrofab buys",
+  legend:[{n:"Industry average",c:css("--ctx"),line:true},{n:"Electrofab buys",c:css("--s1"),line:true}],
+  tableHead:["Month","Industry $/kg","AEFL $/kg"],
+  tableRows:ind.months.map((m,i)=>[m,ind.industryAvg.p[i].toFixed(3),ind.importers[0].p[i]??"—"])});
+ lineChart(c2,{x:ind.months,series:[
+  {name:"Industry avg",short:"Industry",color:css("--ctx"),values:ind.industryAvg.p,area:true},
+  {name:"Electrofab",short:"AEFL",color:css("--s1"),values:ind.importers[0].p,markers:true,bridge:true}],
+  fmt:v=>"$"+v.toFixed(3),yFmt:v=>"$"+v.toFixed(2)});
+ const c3=makeCard($("mk-c3"),{title:"Five-year trading strategy",sub:"Planned volumes (tons/yr)",
+  legend:[{n:"FCW",c:css("--s1"),line:true},{n:"MIG",c:css("--s2"),line:true},{n:"Abrasives & tools",c:css("--s3"),line:true}],
+  tableHead:["Year","MIG t","FCW t","Tools t","FCW share"],
+  tableRows:mk.strategy.map(r=>[r.y,r.mig,r.fcw,r.tools,fmtPct(r.fcwSh,0)])});
+ lineChart(c3,{x:mk.strategy.map(r=>"FY"+r.y),series:[
+  {name:"FCW",color:css("--s1"),values:mk.strategy.map(r=>r.fcw)},
+  {name:"MIG",color:css("--s2"),values:mk.strategy.map(r=>r.mig)},
+  {name:"Tools",short:"Tools",color:css("--s3"),values:mk.strategy.map(r=>r.tools)}],
+  fmt:v=>fmtN(v)+" t",yFmt:v=>fmtN(v)});
+ $("mk-risk").innerHTML=`<h3>Supply risk indicators & procurement guidance</h3><div class="sub">Derived from import data and the FY27 plan</div>
+ <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+ <div class="callout warn" style="margin:0"><b>Price risk — Amber.</b> CFR up ~${fmtPct(priceMove)} in six months; steel & freight momentum suggests locking volume before further increases.</div>
+ <div class="callout warn" style="margin:0"><b>Concentration risk — Amber.</b> Single origin (CN) and effectively single supplier (Longteng). Qualify a second source; industry peers buy from multiple CN mills at $0.76–0.93.</div>
+ <div class="callout good" style="margin:0"><b>Demand — Green.</b> FY27 plan needs 700 t of FCW (~58 t/month); the modelled 49.7 t LC covers under one month of plan — volume risk is low if sales ramp holds.</div>
+ <div class="callout" style="margin:0"><b>Recommendation.</b> Proceed with the LC for 1.2 mm now (price defensible vs benchmark), re-negotiate or defer the incremental 1.6 mm, and pre-agree a Q4 frame contract to hedge the price trend.</div>
+ </div>`;
+}
+
+/* ---------- Budget ---------- */
+function renderBudget(){
+ const el=$("pg-budget"),B=DATA.budget;M=computeModel(A);
+ const cogsBudget=B.rows[0].budget-B.rows[1].budget;
+ const lcShare=M.landed/cogsBudget;
+ const ytdT=74.52, planT=B.fcwVolumePlanT;
+ el.innerHTML=`<h2 class="pg">Budget FY 2026–27</h2>
+ <p class="pg-sub">First full trading year: revenue ৳${fmtM(B.rows[0].budget)} (vs ৳${fmtM(B.rows[0].last)} last year) at ${fmtPct(B.budgetGpPct)} GP and ${fmtPct(B.budgetEbitdaPct)} EBITDA. The scenario LC is measured against the implied procurement budget below.</p>
+ <div class="grid g4" id="bd-tiles"></div>
+ <div class="grid g2 mt"><div id="bd-c1"></div><div class="card" id="bd-util"></div></div>
+ <div class="card mt" id="bd-tbl"></div>`;
+ $("bd-tiles").innerHTML=
+  kpiTile({label:"Budgeted revenue",value:fmtBDT(B.rows[0].budget),sub:"vs ৳"+fmtM(B.rows[0].last)+" last year"})+
+  kpiTile({label:"Budgeted gross profit",value:fmtBDT(B.rows[1].budget),rag:M.pnl.gpPct>=B.budgetGpPct?"g":"a",delta:"scenario GP% "+fmtPct(M.pnl.gpPct)+" vs budget "+fmtPct(B.budgetGpPct),deltaGood:M.pnl.gpPct>=B.budgetGpPct})+
+  kpiTile({label:"Budgeted EBITDA",value:fmtBDT(B.rows[2].budget),rag:M.pnl.ebitdaPct>=B.budgetEbitdaPct?"g":"a",delta:"scenario "+fmtPct(M.pnl.ebitdaPct)+" vs budget "+fmtPct(B.budgetEbitdaPct),deltaGood:M.pnl.ebitdaPct>=B.budgetEbitdaPct,sub:"EBITDA turnaround from −৳6.5M"})+
+  kpiTile({label:"This LC vs procurement budget",value:fmtPct(lcShare),sub:"of implied FY27 COGS ৳"+fmtM(cogsBudget)});
+ const mrg=[
+  {m:"Gross profit %",b:DATA.budget.budgetGpPct*100,i:[8,10],s:M.pnl.gpPct*100},
+  {m:"EBITDA %",b:DATA.budget.budgetEbitdaPct*100,i:[3,5],s:M.pnl.ebitdaPct*100},
+  {m:"Net profit %",b:B.rows[3].budget/B.rows[0].budget*100,i:null,s:null}];
+ const c1=makeCard($("bd-c1"),{title:"FY 26–27 budgeted margins vs industry standard",sub:"This LC scenario shown for comparison",
+  legend:[{n:"Budget FY 26–27",c:css("--s3")},{n:"This LC (scenario)",c:css("--s1")},{n:"Industry std (mid)",c:css("--ctx")}],
+  tableHead:["Metric","Budget","Scenario LC","Industry std"],
+  tableRows:mrg.map(r=>[r.m,r.b.toFixed(1)+"%",r.s!=null?r.s.toFixed(1)+"%":"—",r.i?r.i[0]+"–"+r.i[1]+"%":"—"]),
+  src:"Industry std: revenue growth 10–15%, GP 8–10%, EBITDA 3–5% (Budget 2026-2027 sheet)"});
+ colChart(c1,{cats:mrg.map(r=>r.m),series:[
+  {name:"Budget",color:css("--s3"),values:mrg.map(r=>r.b)},
+  {name:"Scenario LC",color:css("--s1"),values:mrg.map(r=>r.s)},
+  {name:"Industry mid",color:css("--ctx"),values:mrg.map(r=>r.i?(r.i[0]+r.i[1])/2:null)}],
+  fmt:v=>v.toFixed(1)+"%",directLabel:false});
+  $("bd-util").innerHTML=`<h3>Budget utilization & volume progress</h3><div class="sub">FCW trading plan ${planT} t for FY 27</div>
+ <div style="margin:14px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><b>This LC vs monthly procurement budget</b><span>${fmtPct(M.landed/(cogsBudget/12))} of ৳${fmtM(cogsBudget/12)}/mo</span></div>
+ <div class="meter"><div style="width:${Math.min(M.landed/(cogsBudget/12)*100,100)}%"></div></div></div>
+ <div style="margin:14px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><b>CY imports vs FCW annual plan</b><span>${fmtN(ytdT,1)} t + this LC ${fmtN(M.q/1000,1)} t = ${fmtPct((ytdT+M.q/1000)/planT)}</span></div>
+ <div class="meter"><div style="width:${Math.min((ytdT+M.q/1000)/planT*100,100)}%;background:var(--s2)"></div></div></div>
+ <div style="margin:14px 0"><div style="display:flex;justify-content:space-between;font-size:12px"><b>Scenario GP% vs budget GP%</b><span>${fmtPct(M.pnl.gpPct)} vs ${fmtPct(B.budgetGpPct)}</span></div>
+ <div class="meter"><div style="width:${Math.min(M.pnl.gpPct/B.budgetGpPct*100,100)}%;background:${M.pnl.gpPct>=B.budgetGpPct?"var(--good)":"var(--warn)"}"></div></div></div>
+ <div class="note">Forecast vs budget: at scenario margins, hitting the ৳${fmtM(B.rows[1].budget)} GP budget needs ~${fmtN(B.rows[1].budget/M.pnl.gpPS)} spools (~${fmtN(B.rows[1].budget/M.pnl.gpPS*15/1000,0)} t) sold in FY 27 — vs plan ${planT} t. Margin ≥ ${fmtPct(B.budgetGpPct)} must hold.</div>`;
+ $("bd-tbl").innerHTML=`<h3>Budget scorecard</h3><div class="sub">All monetary values in ৳</div>
+ <div style="overflow:auto"><table class="dt"><thead><tr><th>KPI</th><th>Last year actual</th><th>Budget FY 26–27</th><th>Change</th><th>Industry std.</th></tr></thead><tbody>
+ ${B.rows.map(r=>`<tr><td>${esc(r.kpi)}</td><td>${r.pct?fmtPct(r.last,1):fmtN(r.last)}</td><td>${r.pct?fmtPct(r.budget,1):fmtN(r.budget)}</td><td>${esc(String(r.chg))}</td><td>${esc(r.ind)}</td></tr>`).join("")}
+ </tbody></table></div>`;
+}
+
+/* ================= 5. FILTERS / GLOBAL UI ================= */
+function buildFilters(){
+ const fp=$("f-product");fp.innerHTML="";
+ [["all","All products"],["fcw12","FCW 1.2 mm"],["fcw16","FCW 1.6 mm"]].forEach(([v,l])=>{
+  const b=document.createElement("button");b.className="chip"+(F.product===v?" active":"");b.textContent=l;
+  b.onclick=()=>{F.product=v;buildFilters();renderInventory();renderIndustry();};fp.appendChild(b);});
+ const pp=$("f-period");pp.innerHTML="";
+ [["6 mo",[0,5]],["Q1",[0,2]],["Q2",[3,5]],["Latest",[5,5]]].forEach(([l,r])=>{
+  const b=document.createElement("button");b.className="chip"+(F.period[0]===r[0]&&F.period[1]===r[1]?" active":"");b.textContent=l;
+  b.onclick=()=>{F.period=r;buildFilters();renderIndustry();renderOverview();};pp.appendChild(b);});
+ const fi=$("f-importer");fi.innerHTML=`<option value="all">All importers</option>`+
+  DATA.industry.importers.map(i=>`<option value="${esc(i.name)}"${F.importer===i.name?" selected":""}>${esc(i.name)}</option>`).join("");
+ fi.onchange=()=>{F.importer=fi.value;renderIndustry();};
+ $("data-stamp").textContent="Data as of "+DATA.meta.updated;
+}
+$("btn-dark").onclick=()=>{document.documentElement.classList.toggle("dark");renderAll();};
+if(matchMedia("(prefers-color-scheme: dark)").matches)document.documentElement.classList.add("dark");
+
+/* ================= 6. DATA REFRESH (source workbook / JSON) ================= */
+const modal=$("modal-bg");
+$("btn-refresh").onclick=()=>{modal.style.display="flex";};
+$("modal-close").onclick=()=>{modal.style.display="none";};
+modal.addEventListener("click",e=>{if(e.target===modal)modal.style.display="none";});
+const drop=$("drop"),fileInp=$("file-inp");
+drop.onclick=()=>fileInp.click();
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("on");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("on");}));
+drop.addEventListener("drop",e=>{if(e.dataTransfer.files[0])loadWorkbook(e.dataTransfer.files[0]);});
+fileInp.onchange=()=>{if(fileInp.files[0])loadWorkbook(fileInp.files[0]);};
+function msg(t,ok){const m=$("refresh-msg");m.textContent=t;m.style.color=ok?"var(--good)":"var(--crit)";}
+function loadWorkbook(file){
+ if(typeof XLSX==="undefined"){msg("Spreadsheet engine (CDN) not reachable in this environment — use the JSON box below instead.",false);return;}
+ const rd=new FileReader();
+ rd.onload=e=>{try{
+  const wb=XLSX.read(new Uint8Array(e.target.result),{type:"array"});
+  const sheet=(n,key)=>{const ws=wb.Sheets[n];if(!ws)return null;
+   const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:null});
+   const hi=rows.findIndex(r=>r&&String(r[0]).trim()===key);
+   if(hi<0)return null;const hd=rows[hi].map(h=>h==null?"":String(h).trim());
+   return rows.slice(hi+1).filter(r=>r&&r[0]!=null&&String(r[0]).trim()!=="").map(r=>{const o={};hd.forEach((h,i)=>{if(h)o[h]=r[i];});return o;});};
+  const st=sheet("Stock","item"),sp=sheet("SalesPlan","item"),of=sheet("Offer","item"),tf=sheet("Tariff","duty"),
+        ia=sheet("IndustryAvg","month"),ii=sheet("IndustryImporters","importer"),bg=sheet("Budget","kpi"),mt=sheet("Meta","updated"),rc=sheet("Receipts","date");
+  if(!st)throw new Error("Sheet 'Stock' not found — use the companion source workbook template.");
+  st.forEach(r=>{const t=DATA.stock.find(x=>x.item===r.item);if(t)Object.assign(t,{open:+r.open,inQ:+r.inQ,out:+r.out,close:+r.close,value:+r.value,rate:+r.rate,action:r.action||t.action});});
+  if(sp)sp.forEach(r=>{const t=DATA.salesPlan.find(x=>x.item===r.item);if(t)Object.assign(t,{qty:+r.qty,value:+r.value,action:r.action||t.action});});
+  if(of){of.forEach(r=>{const t=DATA.offer.lines.find(x=>x.item===r.item);if(t){t.qty=+r.qty;t.cfr=+r.cfr;}});
+   const o12=DATA.offer.lines[0],o16=DATA.offer.lines[1];
+   BASE_ASSUMP.cfr12=o12.cfr;BASE_ASSUMP.cfr16=o16.cfr;A.cfr12=o12.cfr;A.cfr16=o16.cfr;}
+  if(tf)tf.forEach(r=>{const t=DATA.tariff.rows.find(x=>x.d===r.duty);if(t){t.p=+r.prevFY;t.c=+r.curFY;}});
+  if(ia){DATA.industry.months=ia.map(r=>r.month);DATA.industry.industryAvg={q:ia.map(r=>+r.qty),p:ia.map(r=>+r.price)};}
+  if(ii){const byName={};ii.forEach(r=>{(byName[r.importer]=byName[r.importer]||{}).self=/electrofab/i.test(r.importer);
+    const mi=DATA.industry.months.indexOf(r.month);if(mi<0)return;
+    byName[r.importer]["q"+mi]=+r.qty;byName[r.importer]["p"+mi]=+r.price;});
+   DATA.industry.importers=Object.keys(byName).map(n=>({name:n,self:/electrofab/i.test(n),
+    q:DATA.industry.months.map((_,i)=>byName[n]["q"+i]??null),p:DATA.industry.months.map((_,i)=>byName[n]["p"+i]??null)}));}
+  if(bg)DATA.budget.rows.forEach((row,i)=>{const r=bg.find(x=>x.kpi===row.kpi);if(r){row.last=+r.last;row.budget=+r.budget;row.chg=r.change??row.chg;row.ind=r.industry??row.ind;}});
+  if(rc)DATA.receipts=rc.map(r=>({date:typeof r.date==="string"?r.date:new Date(Math.round((r.date-25569)*864e5)).toISOString().slice(0,10),fcw12:+r.fcw12||0,fcw16:+r.fcw16||0,cfr:+r.cfr||0}));
+  if(mt&&mt[0]){Object.assign(DATA.meta,{updated:String(mt[0].updated??DATA.meta.updated),stockPeriod:mt[0].stockPeriod??DATA.meta.stockPeriod,periodDays:+mt[0].periodDays||DATA.meta.periodDays,asOf:mt[0].asOf?String(mt[0].asOf):DATA.meta.asOf});}
+  if(mt&&mt[0]&&mt[0].exRate){BASE_ASSUMP.exRate=+mt[0].exRate;A.exRate=+mt[0].exRate;}
+  renderAll();msg("✓ Data refreshed from "+file.name+" — all dashboards recalculated.",true);
+ }catch(err){msg("Could not read workbook: "+err.message,false);}};
+ rd.readAsArrayBuffer(file);
+}
+$("json-apply").onclick=()=>{try{const j=JSON.parse($("json-inp").value);DATA={...DATA,...j};renderAll();msg("✓ JSON applied.",true);}catch(e){msg("Invalid JSON: "+e.message,false);}};
+$("json-export").onclick=()=>{$("json-inp").value=JSON.stringify(DATA,null,1);msg("Current data exported below — copy & save it.",true);};
+
+/* ================= 7. INIT ================= */
+function renderAll(){
+ buildFilters();
+ renderOverview();renderAssump();renderInventory();renderSales();
+ renderTariff();renderLanded();renderCompare();renderIndustry();renderMarket();renderBudget();
+}
+renderAll();
+</script>
+</body>
+</html>
